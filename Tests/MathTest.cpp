@@ -98,3 +98,82 @@ TEST(MathUtils, Lerp) {
     EXPECT_FLOAT_EQ(Lerp(0.0f, 10.0f, 0.0f), 0.0f);
     EXPECT_FLOAT_EQ(Lerp(0.0f, 10.0f, 1.0f), 10.0f);
 }
+
+// ── Quat ───────────────────────────────────────────────────────────────────────
+
+TEST(Quat, Identity) {
+    Quat q = Quat::Identity();
+    EXPECT_FLOAT_EQ(q.x, 0.0f);
+    EXPECT_FLOAT_EQ(q.y, 0.0f);
+    EXPECT_FLOAT_EQ(q.z, 0.0f);
+    EXPECT_FLOAT_EQ(q.w, 1.0f);
+}
+
+TEST(Quat, FromAxisAngle90) {
+    // 90° around Y: (0,0,-1) should rotate to (1,0,0)
+    Quat q = Quat::FromAxisAngle({0, 1, 0}, Radians(90.0f));
+    Vec3 forward{0, 0, -1};
+    Vec3 result = q.Rotate(forward);
+    EXPECT_NEAR(result.x, -1.0f, 0.001f);
+    EXPECT_NEAR(result.y,  0.0f, 0.001f);
+    EXPECT_NEAR(result.z,  0.0f, 0.001f);
+}
+
+TEST(Quat, Normalize) {
+    Quat q{1, 2, 3, 4};
+    Quat n = q.Normalized();
+    EXPECT_NEAR(n.Length(), 1.0f, 0.001f);
+}
+
+TEST(Quat, ConjugateInverse) {
+    Quat q = Quat::FromAxisAngle({0, 1, 0}, Radians(45.0f));
+    Quat inv = q.Inverse();
+    Quat product = q * inv;
+    EXPECT_NEAR(product.x, 0.0f, 0.001f);
+    EXPECT_NEAR(product.y, 0.0f, 0.001f);
+    EXPECT_NEAR(product.z, 0.0f, 0.001f);
+    EXPECT_NEAR(product.w, 1.0f, 0.001f);
+}
+
+TEST(Quat, ToMat4Identity) {
+    Quat q = Quat::Identity();
+    Mat4 m = q.ToMat4();
+    Mat4 I = Mat4::Identity();
+    for (int c = 0; c < 4; ++c)
+        for (int r = 0; r < 4; ++r)
+            EXPECT_NEAR(m.m[c][r], I.m[c][r], 0.001f);
+}
+
+// ── Transform ──────────────────────────────────────────────────────────────────
+
+TEST(Transform, TranslateOnly) {
+    Transform t;
+    t.Position = {10, 20, 30};
+    Mat4 m = t.ToMatrix();
+    EXPECT_NEAR(m.m[3][0], 10.0f, 0.001f);
+    EXPECT_NEAR(m.m[3][1], 20.0f, 0.001f);
+    EXPECT_NEAR(m.m[3][2], 30.0f, 0.001f);
+}
+
+TEST(Transform, ScaleOnly) {
+    Transform t;
+    t.Scale = {2, 3, 4};
+    Mat4 m = t.ToMatrix();
+    EXPECT_NEAR(m.m[0][0], 2.0f, 0.001f);
+    EXPECT_NEAR(m.m[1][1], 3.0f, 0.001f);
+    EXPECT_NEAR(m.m[2][2], 4.0f, 0.001f);
+}
+
+TEST(Transform, TRSCombined) {
+    Transform t;
+    t.Position = {5, 0, 0};
+    t.Rotation = Quat::FromAxisAngle({0, 1, 0}, Radians(90.0f));
+    t.Scale = {1, 1, 1};
+    Mat4 m = t.ToMatrix();
+    // Rotating (0,0,-1) by 90° around Y and translating by (5,0,0)
+    Vec4 p{0, 0, -1, 1};
+    Vec4 r = m * p;
+    EXPECT_NEAR(r.x, 4.0f, 0.01f); // 5 + (-1)
+    EXPECT_NEAR(r.y, 0.0f, 0.01f);
+    EXPECT_NEAR(r.z, 0.0f, 0.01f);
+}

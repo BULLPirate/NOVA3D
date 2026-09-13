@@ -4,6 +4,8 @@
 
 #include "Vec.h"
 #include "Mat4.h"
+#include "Quat.h"
+#include "Transform.h"
 
 #include <cmath>
 
