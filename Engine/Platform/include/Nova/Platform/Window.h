@@ -7,6 +7,8 @@ struct SDL_Window;
 
 namespace Nova {
 
+class Input;  // forward declaration
+
 struct WindowProps {
     std::string Title  = "NOVA3D";
     uint32_t   Width   = 1280;
@@ -22,7 +24,8 @@ public:
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
 
-    void PollEvents();
+    /// Poll events and forward to Input. Returns true if window should close.
+    void PollEvents(Input& input);
     bool ShouldClose() const { return m_ShouldClose; }
 
     uint32_t GetWidth()  const { return m_Width; }

@@ -1,5 +1,6 @@
 #include <Nova/Platform/Window.h>
 #include <Nova/Core/Log.h>
+#include <Nova/Core/Input.h>
 
 #include <SDL3/SDL.h>
 
@@ -37,21 +38,45 @@ Window::~Window() {
     NOVA_LOG_INFO("Window destroyed");
 }
 
-void Window::PollEvents() {
+void Window::PollEvents(Input& input) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
             case SDL_EVENT_QUIT:
                 m_ShouldClose = true;
                 break;
+
             case SDL_EVENT_WINDOW_RESIZED:
                 m_Width  = static_cast<uint32_t>(event.window.data1);
                 m_Height = static_cast<uint32_t>(event.window.data2);
                 NOVA_LOG_DEBUG("Window resized to {}x{}", m_Width, m_Height);
                 break;
+
+            // ── Keyboard (use scancode — stable, hardware-oriented) ────────
             case SDL_EVENT_KEY_DOWN:
-                NOVA_LOG_DEBUG("Key pressed: {}", SDL_GetKeyName(event.key.key));
+                input.OnKeyDown(static_cast<KeyCode>(event.key.scancode));
                 break;
+            case SDL_EVENT_KEY_UP:
+                input.OnKeyUp(static_cast<KeyCode>(event.key.scancode));
+                break;
+
+            // ── Mouse ────────────────────────────────────────────────────────
+            case SDL_EVENT_MOUSE_MOTION:
+                input.OnMouseMove(
+                    event.motion.x, event.motion.y,
+                    event.motion.xrel, event.motion.yrel
+                );
+                break;
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                input.OnMouseButtonDown(static_cast<MouseButton>(event.button.button - 1));
+                break;
+            case SDL_EVENT_MOUSE_BUTTON_UP:
+                input.OnMouseButtonUp(static_cast<MouseButton>(event.button.button - 1));
+                break;
+            case SDL_EVENT_MOUSE_WHEEL:
+                input.OnMouseScroll(event.wheel.x, event.wheel.y);
+                break;
+
             default:
                 break;
         }

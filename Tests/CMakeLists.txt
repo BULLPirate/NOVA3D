@@ -8,6 +8,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(NovaTests
     LogTest.cpp
     MathTest.cpp
+    InputTest.cpp
 )
 
 target_link_libraries(NovaTests PRIVATE

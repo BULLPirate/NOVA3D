@@ -1,4 +1,5 @@
 #include <Nova/Core/Log.h>
+#include <Nova/Core/Input.h>
 #include <Nova/Platform/Window.h>
 #include <Nova/Math/Math.h>
 
@@ -9,6 +10,7 @@ int main() {
 
     {
         Nova::Window window({"NOVA3D", 1280, 720});
+        Nova::Input  input;
 
         // Smoke test: math
         Nova::Vec3 a{1, 0, 0};
@@ -20,10 +22,21 @@ int main() {
         NOVA_LOG_INFO("Perspective matrix created OK (m[0][0]={})", proj.m[0][0]);
 
         // Main loop
-        NOVA_LOG_INFO("Entering main loop...");
+        NOVA_LOG_INFO("Entering main loop... Press Escape or close window to exit.");
         while (!window.ShouldClose()) {
-            window.PollEvents();
-            // TODO: update, render
+            input.BeginFrame();
+            window.PollEvents(input);
+
+            // Example: log ESC key
+            if (input.IsKeyPressed(Nova::KeyCode::Escape)) {
+                NOVA_LOG_INFO("Escape pressed — exiting.");
+                break;
+            }
+
+            // Example: log mouse clicks
+            if (input.IsMouseButtonPressed(Nova::MouseButton::Left)) {
+                NOVA_LOG_INFO("Mouse click at ({}, {})", input.GetMouseX(), input.GetMouseY());
+            }
         }
         NOVA_LOG_INFO("Main loop exited.");
     }
