@@ -3,4 +3,4 @@ add_library(NovaPlatform STATIC
 )
 
 target_include_directories(NovaPlatform PUBLIC include)
-target_link_libraries(NovaPlatform PUBLIC NovaCore)
+target_link_libraries(NovaPlatform PUBLIC NovaCore SDL3::SDL3)

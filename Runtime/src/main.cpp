@@ -19,8 +19,14 @@ int main() {
         auto proj = Nova::Mat4::Perspective(Nova::Radians(60.0f), 16.0f/9.0f, 0.1f, 100.0f);
         NOVA_LOG_INFO("Perspective matrix created OK (m[0][0]={})", proj.m[0][0]);
 
-        NOVA_LOG_INFO("Foundation OK. Exiting.");
-    } // Window destroyed here — logger still alive
+        // Main loop
+        NOVA_LOG_INFO("Entering main loop...");
+        while (!window.ShouldClose()) {
+            window.PollEvents();
+            // TODO: update, render
+        }
+        NOVA_LOG_INFO("Main loop exited.");
+    }
 
     Nova::Log::Shutdown();
     return 0;
