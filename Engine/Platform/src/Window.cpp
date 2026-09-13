@@ -6,7 +6,7 @@ namespace Nova {
 Window::Window(const WindowProps& props)
     : m_Width(props.Width), m_Height(props.Height)
 {
-    NOVA_LOG_INFO("Window created: %s (%ux%u)", props.Title.c_str(), m_Width, m_Height);
+    NOVA_LOG_INFO("Window created: {} ({}x{})", props.Title, m_Width, m_Height);
 }
 
 Window::~Window() {

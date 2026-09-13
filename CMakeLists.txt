@@ -28,6 +28,16 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
+# ── Third-party dependencies (FetchContent) ────────────────────────────────────
+include(FetchContent)
+
+FetchContent_Declare(spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG        v1.15.2
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(spdlog)
+
 # ── Global include path for Nova headers ───────────────────────────────────────
 # Публичные заголовки лежат в Engine/<Module>/include/
 # Подключение: #include <Nova/Core/Log.h>
