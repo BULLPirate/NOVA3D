@@ -2,6 +2,9 @@
 
 #include <string>
 #include <cstdint>
+#include <functional>
+
+#include <SDL3/SDL_events.h>
 
 struct SDL_Window;
 
@@ -25,7 +28,8 @@ public:
     Window& operator=(const Window&) = delete;
 
     /// Poll events and forward to Input.
-    void PollEvents(Input& input);
+    using EventHook = std::function<void(const SDL_Event&)>;
+    void PollEvents(Input& input, const EventHook& hook = {});
     bool ShouldClose() const { return m_ShouldClose; }
     bool IsValid()     const { return m_Window != nullptr; }
 

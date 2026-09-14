@@ -64,6 +64,16 @@ TEST(Mat4, MultiplyIdentity) {
     EXPECT_FLOAT_EQ(R.m[3][2], 3.0f);
 }
 
+TEST(Mat4, OrthographicMetalMapsDepthToZeroOne) {
+    Mat4 ortho = Mat4::OrthographicMetal(-1.0f, 1.0f, -1.0f, 1.0f, 0.5f, 10.0f);
+    Vec4 viewPoint{0.0f, 0.0f, -5.0f, 1.0f};
+    Vec4 clip = ortho * viewPoint;
+    EXPECT_NEAR(clip.w, 1.0f, 1e-5f);
+    const float ndcZ = clip.z / clip.w;
+    EXPECT_GT(ndcZ, 0.0f);
+    EXPECT_LT(ndcZ, 1.0f);
+}
+
 TEST(Mat4, Perspective) {
     Mat4 P = Mat4::Perspective(Radians(60.0f), 16.0f/9.0f, 0.1f, 100.0f);
     // m[0][0] should be ~0.9743 for 16:9 @ 60°

@@ -72,6 +72,31 @@ struct Mat4 {
         return r;
     }
 
+    /// Perspective for Metal / D3D clip space (Z in [0, 1] after divide).
+    static Mat4 PerspectiveMetal(float fovYRadians, float aspect, float near, float far) {
+        Mat4 r;
+        float tanHalf = std::tan(fovYRadians * 0.5f);
+        r.m[0][0] = 1.0f / (aspect * tanHalf);
+        r.m[1][1] = 1.0f / tanHalf;
+        r.m[2][2] = far / (near - far);
+        r.m[2][3] = -1.0f;
+        r.m[3][2] = (near * far) / (near - far);
+        return r;
+    }
+
+    /// Orthographic projection for Metal clip space (Z in [0, 1] after divide).
+    static Mat4 OrthographicMetal(float left, float right, float bottom, float top,
+                                  float nearPlane, float farPlane) {
+        Mat4 r = Identity();
+        r.m[0][0] = 2.0f / (right - left);
+        r.m[1][1] = 2.0f / (top - bottom);
+        r.m[2][2] = -1.0f / (farPlane - nearPlane);
+        r.m[3][0] = -(right + left) / (right - left);
+        r.m[3][1] = -(top + bottom) / (top - bottom);
+        r.m[3][2] = -nearPlane / (farPlane - nearPlane);
+        return r;
+    }
+
     static Mat4 LookAt(const Vec3& eye, const Vec3& target, const Vec3& worldUp) {
         Vec3 f = (target - eye).Normalized();
         Vec3 r = f.Cross(worldUp).Normalized();

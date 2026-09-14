@@ -20,7 +20,7 @@ struct Camera {
     }
 
     Mat4 GetProjectionMatrix() const {
-        return Mat4::Perspective(FovYRadians, Aspect, NearPlane, FarPlane);
+        return Mat4::PerspectiveMetal(FovYRadians, Aspect, NearPlane, FarPlane);
     }
 
     /// Column-major, for Metal: clip = viewProj * localPosition.

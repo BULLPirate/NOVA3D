@@ -1,0 +1,46 @@
+{
+  "format": "nova.scene",
+  "version": 1,
+  "entities": [
+    {
+      "name": "Sun",
+      "transform": {
+        "position": [0.0, 0.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "directionalLight": {
+        "direction": [0.3490639, 0.8471553, 0.3986613],
+        "color": [1.0, 0.98, 0.95],
+        "ambient": 0.18
+      }
+    },
+    {
+      "name": "Main Camera",
+      "transform": {
+        "position": [0.0, 0.35, 3.2],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "camera": {
+        "primary": true,
+        "lookAt": [0.0, 0.0, 0.0],
+        "fovYRadians": 1.0471976,
+        "near": 0.1,
+        "far": 100.0
+      }
+    },
+    {
+      "name": "Cube",
+      "transform": {
+        "position": [0.0, 0.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "meshRenderer": {
+        "primitive": "UnitCube",
+        "receiveShadows": false
+      }
+    }
+  ]
+}

@@ -1,6 +1,8 @@
 add_library(NovaRenderer STATIC
     src/MetalRenderer.mm
     src/Mesh.cpp
+    src/Texture.cpp
+    src/Lighting.cpp
 )
 
 set_source_files_properties(src/MetalRenderer.mm PROPERTIES

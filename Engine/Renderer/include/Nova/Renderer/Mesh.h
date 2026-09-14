@@ -20,4 +20,22 @@ struct MeshData {
 /// Engine test primitive (unit cube centered at origin).
 MeshData CreateUnitCubeMesh();
 
+struct TexturedVertex {
+    float x, y, z;
+    float nx, ny, nz;
+    float u, v;
+};
+
+struct TexturedMeshData {
+    std::vector<TexturedVertex> Vertices;
+    std::vector<uint32_t>       Indices;
+};
+
+/// Same cube topology with UVs for texture sampling.
+TexturedMeshData CreateUnitCubeTexturedMesh();
+
+/// Geometry checks (outward-facing triangles, 24 verts / 36 indices).
+bool ValidateUnitCubeMesh(const MeshData& mesh);
+bool ValidateUnitCubeTexturedMesh(const TexturedMeshData& mesh);
+
 } // namespace Nova

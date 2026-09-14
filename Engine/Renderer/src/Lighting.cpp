@@ -1,0 +1,27 @@
+#include <Nova/Renderer/Lighting.h>
+
+#include <cmath>
+
+namespace Nova {
+
+Mat4 ComputeDirectionalLightViewProjection(const Vec3& lightDirectionTowardLight,
+                                           const Vec3& focus,
+                                           float orthoHalfExtent,
+                                           float nearPlane,
+                                           float farPlane) {
+    const Vec3 dir = lightDirectionTowardLight.Normalized();
+    const Vec3 eye = focus + dir * 12.0f;
+
+    Vec3 up{0.0f, 1.0f, 0.0f};
+    if (std::fabs(dir.Dot(up)) > 0.95f) {
+        up = {1.0f, 0.0f, 0.0f};
+    }
+
+    const Mat4 view = Mat4::LookAt(eye, focus, up);
+    const Mat4 proj = Mat4::OrthographicMetal(-orthoHalfExtent, orthoHalfExtent,
+                                              -orthoHalfExtent, orthoHalfExtent,
+                                              nearPlane, farPlane);
+    return proj * view;
+}
+
+} // namespace Nova

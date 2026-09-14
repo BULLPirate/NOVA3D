@@ -7,7 +7,9 @@ set_target_properties(Nova3D PROPERTIES
     INSTALL_RPATH "@executable_path/../Frameworks"
 )
 
-target_link_libraries(Nova3D PRIVATE NovaCore NovaPlatform NovaMath NovaRenderer)
+target_compile_definitions(Nova3D PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
+
+target_link_libraries(Nova3D PRIVATE NovaCore NovaPlatform NovaMath NovaRenderer NovaScene)
 
 add_custom_command(TARGET Nova3D POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory

@@ -12,12 +12,19 @@ add_executable(NovaTests
     RendererTest.cpp
     CameraTest.cpp
     MeshTest.cpp
+    TextureTest.cpp
+    LightingTest.cpp
+    SceneTest.cpp
+    SceneSerializationTest.cpp
 )
+
+target_compile_definitions(NovaTests PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
 
 target_link_libraries(NovaTests PRIVATE
     NovaCore
     NovaMath
     NovaRenderer
+    NovaScene
     GTest::gtest_main
 )
 

@@ -54,11 +54,17 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/Engine/Platform/include
     ${CMAKE_SOURCE_DIR}/Engine/Math/include
     ${CMAKE_SOURCE_DIR}/Engine/Renderer/include
+    ${CMAKE_SOURCE_DIR}/Engine/Scene/include
 )
 
 # ── Subdirectories ─────────────────────────────────────────────────────────────
 add_subdirectory(Engine)
 add_subdirectory(Runtime)
+
+option(NOVA_BUILD_EDITOR "Build NOVA3D editor (ImGui)" ON)
+if(NOVA_BUILD_EDITOR)
+    add_subdirectory(Editor)
+endif()
 
 option(NOVA_BUILD_TESTS "Build unit tests" ON)
 if(NOVA_BUILD_TESTS)

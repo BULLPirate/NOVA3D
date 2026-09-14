@@ -110,9 +110,12 @@ void* Window::GetNativeMetalLayer() const {
     return SDL_Metal_GetLayer(m_MetalView);
 }
 
-void Window::PollEvents(Input& input) {
+void Window::PollEvents(Input& input, const EventHook& hook) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+        if (hook) {
+            hook(event);
+        }
         switch (event.type) {
             case SDL_EVENT_QUIT:
                 m_ShouldClose = true;
