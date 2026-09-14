@@ -6,10 +6,10 @@
 int main() {
     Nova::Log::Init();
 
-    NOVA_LOG_INFO("NOVA3D Engine v0.1.0 — Metal renderer");
+    NOVA_LOG_INFO("NOVA3D Engine v0.1.0 — Metal triangle");
 
     {
-        Nova::Window window({"NOVA3D — Metal", 1280, 720});
+        Nova::Window window({"NOVA3D — Triangle", 1280, 720});
         if (!window.IsValid()) {
             NOVA_LOG_FATAL("Failed to create window");
             Nova::Log::Shutdown();
@@ -24,8 +24,8 @@ int main() {
             return 1;
         }
 
-        // Bright cyan-blue: if Metal clear works, this cannot be mistaken for an empty window.
-        renderer->SetClearColor(0.10f, 0.55f, 0.90f, 1.0f);
+        // Dark background so the RGB triangle is obvious.
+        renderer->SetClearColor(0.08f, 0.09f, 0.12f, 1.0f);
 
         NOVA_LOG_INFO("Entering main loop... Press Escape or close the window to exit.");
         bool firstFrameLogged = false;
