@@ -64,6 +64,12 @@ TEST(SceneSerialization, RejectsBadVersion) {
     EXPECT_EQ(scene.EntityCount(), 0u);
 }
 
+TEST(SceneSerialization, CloneSceneMatchesSource) {
+    const Nova::Scene original = Nova::Scene::CreateDemoLevel();
+    const Nova::Scene copy = Nova::CloneScene(original);
+    EXPECT_TRUE(Nova::ScenesEquivalent(original, copy));
+}
+
 TEST(SceneSerialization, RejectsUnknownPrimitive) {
     const std::string json = R"({
       "format": "nova.scene",

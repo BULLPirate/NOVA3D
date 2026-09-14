@@ -42,7 +42,7 @@ void RenderScene(const Scene& scene, IRenderer& renderer, float aspect, float ti
 
         Mat4 model = meshXform.ToMatrix();
         if (timeSeconds >= 0.0f) {
-            model = model * Mat4::RotateY(timeSeconds * 0.8f) * Mat4::RotateX(timeSeconds * 0.35f);
+            model = model * Mat4::RotateY(-timeSeconds * 0.8f) * Mat4::RotateX(-timeSeconds * 0.35f);
         }
 
         Material material;

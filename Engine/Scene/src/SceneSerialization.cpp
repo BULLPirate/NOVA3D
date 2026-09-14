@@ -337,6 +337,16 @@ SceneIOResult LoadSceneFromFile(const std::filesystem::path& path, Scene& outSce
     return DeserializeSceneFromString(contents, outScene);
 }
 
+Scene CloneScene(const Scene& source) {
+    Scene copy;
+    const std::string json = SerializeSceneToString(source);
+    SceneIOResult result = DeserializeSceneFromString(json, copy);
+    if (!result.Ok) {
+        copy.Clear();
+    }
+    return copy;
+}
+
 bool ScenesEquivalent(const Scene& a, const Scene& b, float epsilon) {
     if (a.EntityCount() != b.EntityCount()) {
         return false;

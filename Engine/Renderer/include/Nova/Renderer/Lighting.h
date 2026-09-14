@@ -9,7 +9,7 @@ namespace Nova {
 struct DirectionalLight {
     Vec3 Direction = {0.35f, 0.85f, 0.4f};
     Vec3 Color     = {1.0f, 0.98f, 0.95f};
-    float Ambient  = 0.22f;
+    float Ambient  = 0.30f;
 };
 
 struct ShadowSettings {

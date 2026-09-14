@@ -68,9 +68,9 @@ void ImGuiPassReady(void* renderPassDescriptor, void*) {
 void RotateTransform(Nova::Transform& transform, float deltaX, float deltaY) {
     const float sensitivity = 0.008f;
     const Nova::Quat qYaw =
-        Nova::Quat::FromAxisAngle({0.0f, 1.0f, 0.0f}, -deltaX * sensitivity);
+        Nova::Quat::FromAxisAngle({0.0f, 1.0f, 0.0f}, deltaX * sensitivity);
     const Nova::Quat qPitch =
-        Nova::Quat::FromAxisAngle({1.0f, 0.0f, 0.0f}, -deltaY * sensitivity);
+        Nova::Quat::FromAxisAngle({1.0f, 0.0f, 0.0f}, deltaY * sensitivity);
     transform.Rotation = (qYaw * qPitch * transform.Rotation).Normalized();
 }
 
@@ -103,7 +103,7 @@ int main() {
         Nova::Log::Shutdown();
         return 1;
     }
-    renderer->SetClearColor(0.08f, 0.09f, 0.12f, 1.0f);
+    renderer->SetClearColor(0.10f, 0.11f, 0.14f, 1.0f);
     renderer->SetRenderPassReadyCallback(ImGuiPassReady, nullptr);
     renderer->SetFrameOverlayCallback(ImGuiOverlay, nullptr);
 
@@ -133,6 +133,8 @@ int main() {
 
     Nova::Entity selected{Nova::Entity::kInvalidEntity};
     bool viewportHovered = false;
+    bool isPlaying = false;
+    Nova::Scene playScene;
     while (!window.ShouldClose()) {
         input.BeginFrame();
         window.PollEvents(input, [](const SDL_Event& event) {
@@ -140,7 +142,11 @@ int main() {
         });
 
         if (input.IsKeyPressed(Nova::KeyCode::Escape)) {
-            break;
+            if (isPlaying) {
+                isPlaying = false;
+            } else {
+                break;
+            }
         }
 
         ImGui_ImplSDL3_NewFrame();
@@ -177,10 +183,65 @@ int main() {
                 }
                 ImGui::EndMenu();
             }
-            if (sceneDirty) {
+            if (ImGui::BeginMenu("Play")) {
+                if (!isPlaying && ImGui::MenuItem("Play Scene")) {
+                    playScene = Nova::CloneScene(scene);
+                    isPlaying = true;
+                }
+                if (isPlaying && ImGui::MenuItem("Stop")) {
+                    isPlaying = false;
+                }
+                ImGui::EndMenu();
+            }
+            if (isPlaying) {
+                ImGui::Text(" | PLAY");
+            } else if (sceneDirty) {
                 ImGui::Text(" *");
             }
             ImGui::EndMainMenuBar();
+        }
+
+        Nova::Scene& activeScene = isPlaying ? playScene : scene;
+
+        if (isPlaying) {
+            const ImGuiViewport* vp = ImGui::GetMainViewport();
+            ImGui::SetNextWindowPos(vp->WorkPos);
+            ImGui::SetNextWindowSize(vp->WorkSize);
+            ImGui::Begin("##PlayOverlay", nullptr,
+                         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+                             ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoNav);
+            ImGui::End();
+
+            ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + 12.0f, vp->WorkPos.y + 36.0f));
+            ImGui::Begin("PlayMode", nullptr,
+                         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration);
+            ImGui::TextUnformatted("Play Mode — Esc to stop");
+            if (ImGui::Button("Stop")) {
+                isPlaying = false;
+            }
+            ImGui::End();
+        }
+
+        if (isPlaying) {
+            if (input.IsMouseButtonDown(Nova::MouseButton::Right)) {
+                orbit.YawRadians += input.GetMouseDeltaX() * 0.005f;
+                orbit.PitchRadians += input.GetMouseDeltaY() * 0.005f;
+                orbit.PitchRadians = Nova::Clamp(orbit.PitchRadians, -1.4f, 1.4f);
+            }
+            if (input.GetScrollY() != 0.0f) {
+                orbit.Distance =
+                    Nova::Clamp(orbit.Distance - input.GetScrollY() * 0.25f, 0.8f, 30.0f);
+            }
+            SyncOrbitToScene(activeScene, orbit);
+            uint32_t fbW = 0, fbH = 0;
+            window.GetFramebufferSize(fbW, fbH);
+            const float aspect = fbH > 0 ? static_cast<float>(fbW) / static_cast<float>(fbH)
+                                         : 16.0f / 9.0f;
+            Nova::RenderScene(activeScene, *renderer, aspect, -1.0f);
+            ImGui::Render();
+            renderer->BeginDrawing();
+            renderer->EndFrame();
+            continue;
         }
 
         const ImGuiViewport* mainViewport = ImGui::GetMainViewport();
@@ -233,7 +294,15 @@ int main() {
                     ImGui::TextUnformatted("Component: Camera");
                 }
                 if (scene.HasDirectionalLight(selected)) {
-                    ImGui::TextUnformatted("Component: Directional Light");
+                    Nova::DirectionalLightComponent& sun = scene.GetDirectionalLight(selected);
+                    ImGui::TextUnformatted("Directional Light (Sun)");
+                    if (ImGui::DragFloat3("Direction", &sun.Direction.x, 0.02f, -1.0f, 1.0f)) {
+                        sun.Direction = sun.Direction.Normalized();
+                        sceneDirty = true;
+                    }
+                    if (ImGui::DragFloat("Ambient", &sun.Ambient, 0.01f, 0.0f, 1.0f)) {
+                        sceneDirty = true;
+                    }
                 }
             } else {
                 ImGui::TextUnformatted("Select an entity in Hierarchy.");
@@ -295,14 +364,14 @@ int main() {
             }
         }
 
-        SyncOrbitToScene(scene, orbit);
+        SyncOrbitToScene(activeScene, orbit);
 
         uint32_t fbW = 0, fbH = 0;
         window.GetFramebufferSize(fbW, fbH);
         const float aspect = fbH > 0 ? static_cast<float>(fbW) / static_cast<float>(fbH)
                                      : 16.0f / 9.0f;
 
-        Nova::RenderScene(scene, *renderer, aspect, -1.0f);
+        Nova::RenderScene(activeScene, *renderer, aspect, -1.0f);
 
         ImGui::Render();
         renderer->BeginDrawing();

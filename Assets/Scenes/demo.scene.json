@@ -12,7 +12,7 @@
       "directionalLight": {
         "direction": [0.3490639, 0.8471553, 0.3986613],
         "color": [1.0, 0.98, 0.95],
-        "ambient": 0.18
+        "ambient": 0.32
       }
     },
     {

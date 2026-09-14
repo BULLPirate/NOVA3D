@@ -25,4 +25,7 @@ SceneIOResult DeserializeSceneFromString(const std::string& json, Scene& outScen
 /// Compare scene contents (ignores entity ids / order by name).
 bool ScenesEquivalent(const Scene& a, const Scene& b, float epsilon = 1e-4f);
 
+/// Deep copy via JSON round-trip (used for Play Mode).
+Scene CloneScene(const Scene& source);
+
 } // namespace Nova
