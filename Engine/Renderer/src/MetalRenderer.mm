@@ -184,8 +184,7 @@ public:
         m_ShadowPipeline = nil;
         m_ShadowMap = nil;
         m_ShadowSampler = nil;
-        m_VertexBuffer = nil;
-        m_IndexBuffer = nil;
+        m_GpuMeshes.clear();
         m_UniformBuffer = nil;
         m_AlbedoTexture = nil;
         m_Sampler = nil;
@@ -275,8 +274,27 @@ public:
 
     void ClearMeshDraws() override { m_MeshDraws.clear(); }
 
-    void EnqueueMeshDraw(const Mat4& model, const Material& material) override {
-        m_MeshDraws.push_back({model, material});
+    MeshGpuHandle CreateGpuMesh(const TexturedMeshData& mesh) override {
+        if (!m_Device || mesh.Vertices.empty() || mesh.Indices.empty()) {
+            return kDefaultMeshGpuHandle;
+        }
+
+        GpuMeshBuffers gpu;
+        gpu.IndexCount = static_cast<NSUInteger>(mesh.Indices.size());
+        gpu.VertexBuffer = [m_Device newBufferWithBytes:mesh.Vertices.data()
+                                                 length:mesh.Vertices.size() * sizeof(TexturedVertex)
+                                                options:MTLResourceStorageModeShared];
+        gpu.IndexBuffer = [m_Device newBufferWithBytes:mesh.Indices.data()
+                                                length:mesh.Indices.size() * sizeof(uint32_t)
+                                               options:MTLResourceStorageModeShared];
+        m_GpuMeshes.push_back(gpu);
+        return static_cast<MeshGpuHandle>(m_GpuMeshes.size() - 1);
+    }
+
+    void EnqueueMeshDraw(const Mat4& model,
+                         const Material& material,
+                         MeshGpuHandle meshHandle) override {
+        m_MeshDraws.push_back({model, material, meshHandle});
     }
 
     void* GetNativeDevice() const override {
@@ -338,9 +356,16 @@ public:
     }
 
 private:
+    struct GpuMeshBuffers {
+        id<MTLBuffer> VertexBuffer = nil;
+        id<MTLBuffer> IndexBuffer = nil;
+        NSUInteger IndexCount = 0;
+    };
+
     struct MeshDrawItem {
         Mat4 model;
         Material material;
+        MeshGpuHandle mesh = kDefaultMeshGpuHandle;
     };
 
     bool ShouldRenderShadowPass() const {
@@ -353,8 +378,16 @@ private:
         return m_Material.ReceiveShadows;
     }
 
-    void DrawIndexedMesh(id<MTLRenderCommandEncoder> encoder) {
-        if (!m_Pipeline || !m_VertexBuffer || !m_IndexBuffer) return;
+    const GpuMeshBuffers& MeshBuffers(MeshGpuHandle handle) const {
+        if (handle < m_GpuMeshes.size()) {
+            return m_GpuMeshes[handle];
+        }
+        return m_GpuMeshes[kDefaultMeshGpuHandle];
+    }
+
+    void DrawIndexedMesh(id<MTLRenderCommandEncoder> encoder, MeshGpuHandle meshHandle) {
+        const GpuMeshBuffers& gpu = MeshBuffers(meshHandle);
+        if (!m_Pipeline || !gpu.VertexBuffer || !gpu.IndexBuffer || gpu.IndexCount == 0) return;
 
         if (!m_Viewport.Active) {
             MTLViewport viewport{};
@@ -370,7 +403,7 @@ private:
         [encoder setDepthStencilState:m_DepthStencilState];
         [encoder setFrontFacingWinding:MTLWindingCounterClockwise];
         [encoder setCullMode:MTLCullModeBack];
-        [encoder setVertexBuffer:m_VertexBuffer offset:0 atIndex:0];
+        [encoder setVertexBuffer:gpu.VertexBuffer offset:0 atIndex:0];
         [encoder setVertexBuffer:m_UniformBuffer offset:0 atIndex:1];
         [encoder setFragmentBuffer:m_UniformBuffer offset:0 atIndex:1];
         [encoder setFragmentTexture:m_AlbedoTexture atIndex:0];
@@ -378,9 +411,9 @@ private:
         [encoder setFragmentSamplerState:m_Sampler atIndex:0];
         [encoder setFragmentSamplerState:m_ShadowSampler atIndex:1];
         [encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-                            indexCount:m_IndexCount
+                            indexCount:gpu.IndexCount
                              indexType:MTLIndexTypeUInt32
-                           indexBuffer:m_IndexBuffer
+                           indexBuffer:gpu.IndexBuffer
                      indexBufferOffset:0];
     }
 
@@ -410,7 +443,7 @@ private:
     void DrawQueuedMeshes(id<MTLRenderCommandEncoder> encoder) {
         ApplyViewportScissor(encoder);
         if (m_MeshDraws.empty()) {
-            DrawIndexedMesh(encoder);
+            DrawIndexedMesh(encoder, kDefaultMeshGpuHandle);
             return;
         }
 
@@ -418,23 +451,20 @@ private:
             m_Model = draw.model;
             m_Material = draw.material;
             UploadFrameUniforms();
-            DrawIndexedMesh(encoder);
+            DrawIndexedMesh(encoder, draw.mesh);
         }
     }
 
     void DrawShadowMeshes(id<MTLRenderCommandEncoder> encoder) {
-        auto drawOne = [&]() {
-            [encoder setVertexBuffer:m_VertexBuffer offset:0 atIndex:0];
+        if (m_MeshDraws.empty()) {
+            const GpuMeshBuffers& gpu = MeshBuffers(kDefaultMeshGpuHandle);
+            [encoder setVertexBuffer:gpu.VertexBuffer offset:0 atIndex:0];
             [encoder setVertexBuffer:m_UniformBuffer offset:0 atIndex:1];
             [encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-                                indexCount:m_IndexCount
+                                indexCount:gpu.IndexCount
                                  indexType:MTLIndexTypeUInt32
-                               indexBuffer:m_IndexBuffer
+                               indexBuffer:gpu.IndexBuffer
                          indexBufferOffset:0];
-        };
-
-        if (m_MeshDraws.empty()) {
-            drawOne();
             return;
         }
 
@@ -442,7 +472,14 @@ private:
             m_Model = draw.model;
             m_Material = draw.material;
             UploadFrameUniforms();
-            drawOne();
+            const GpuMeshBuffers& gpu = MeshBuffers(draw.mesh);
+            [encoder setVertexBuffer:gpu.VertexBuffer offset:0 atIndex:0];
+            [encoder setVertexBuffer:m_UniformBuffer offset:0 atIndex:1];
+            [encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                                indexCount:gpu.IndexCount
+                                 indexType:MTLIndexTypeUInt32
+                               indexBuffer:gpu.IndexBuffer
+                         indexBufferOffset:0];
         }
     }
 
@@ -544,16 +581,8 @@ private:
             return false;
         }
 
-        const TexturedMeshData cube = CreateUnitCubeTexturedMesh();
-        m_IndexCount = static_cast<NSUInteger>(cube.Indices.size());
-        m_VertexBuffer = [m_Device newBufferWithBytes:cube.Vertices.data()
-                                               length:cube.Vertices.size() * sizeof(TexturedVertex)
-                                              options:MTLResourceStorageModeShared];
-        m_VertexBuffer.label = @"NovaMeshVB";
-        m_IndexBuffer = [m_Device newBufferWithBytes:cube.Indices.data()
-                                              length:cube.Indices.size() * sizeof(uint32_t)
-                                             options:MTLResourceStorageModeShared];
-        m_IndexBuffer.label = @"NovaMeshIB";
+        m_GpuMeshes.clear();
+        CreateGpuMesh(CreateUnitCubeTexturedMesh());
 
         if (!CreateDefaultAlbedoTexture()) {
             return false;
@@ -702,7 +731,6 @@ private:
     Window* m_Window = nullptr;
     uint32_t m_FbWidth = 0;
     uint32_t m_FbHeight = 0;
-    NSUInteger m_IndexCount = 0;
     Mat4 m_Model = Mat4::Identity();
     Mat4 m_ViewProj = Mat4::Identity();
     std::array<float, 4> m_ClearColor{0.08f, 0.09f, 0.12f, 1.0f};
@@ -715,8 +743,7 @@ private:
     id<MTLCommandBuffer>        m_CommandBuffer = nil;
     id<MTLRenderCommandEncoder> m_Encoder = nil;
     id<MTLRenderPipelineState>  m_Pipeline = nil;
-    id<MTLBuffer>               m_VertexBuffer = nil;
-    id<MTLBuffer>               m_IndexBuffer = nil;
+    std::vector<GpuMeshBuffers> m_GpuMeshes;
     id<MTLBuffer>               m_UniformBuffer = nil;
     id<MTLTexture>                m_DepthTexture = nil;
     id<MTLTexture>                m_AlbedoTexture = nil;

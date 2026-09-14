@@ -51,6 +51,7 @@ Entity Scene::CreateEntity(const std::string& name) {
     rec.Mesh.reset();
     rec.Camera.reset();
     rec.Light.reset();
+    rec.Rotator.reset();
 
     return Entity{PackEntityId(index, rec.Generation)};
 }
@@ -66,6 +67,7 @@ Entity Scene::DuplicateEntity(Entity source) {
     const std::optional<MeshRendererComponent> mesh = src->Mesh;
     const std::optional<CameraComponent> camera = src->Camera;
     const std::optional<DirectionalLightComponent> light = src->Light;
+    const std::optional<RotatorComponent> rotator = src->Rotator;
 
     Entity copy = CreateEntity(newName);
     GetTransform(copy) = xform;
@@ -80,6 +82,9 @@ Entity Scene::DuplicateEntity(Entity source) {
     if (light) {
         AddDirectionalLight(copy, *light);
     }
+    if (rotator) {
+        AddRotator(copy, *rotator);
+    }
     return copy;
 }
 
@@ -90,6 +95,7 @@ void Scene::DestroyEntity(Entity entity) {
     rec->Mesh.reset();
     rec->Camera.reset();
     rec->Light.reset();
+    rec->Rotator.reset();
     if (rec->Generation < 255) {
         ++rec->Generation;
     }
@@ -211,6 +217,33 @@ void Scene::AddDirectionalLight(Entity entity, DirectionalLightComponent light) 
     }
 }
 
+bool Scene::HasRotator(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    return rec && rec->Rotator.has_value();
+}
+
+RotatorComponent& Scene::GetRotator(Entity entity) {
+    EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Rotator) {
+        throw std::out_of_range("Scene::GetRotator missing component");
+    }
+    return *rec->Rotator;
+}
+
+const RotatorComponent& Scene::GetRotator(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Rotator) {
+        throw std::out_of_range("Scene::GetRotator missing component");
+    }
+    return *rec->Rotator;
+}
+
+void Scene::AddRotator(Entity entity, RotatorComponent rotator) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Rotator = rotator;
+    }
+}
+
 void Scene::SetPrimaryCamera(Entity entity) {
     if (!HasCamera(entity)) {
         return;
@@ -268,6 +301,10 @@ Scene Scene::CreateDemoLevel() {
     Entity cube = scene.CreateEntity("Cube");
     scene.AddMeshRenderer(cube, {});
     scene.GetTransform(cube).Position = {0.0f, 0.0f, 0.0f};
+    RotatorComponent spin;
+    spin.AngularVelocity = {0.35f, 0.8f, 0.0f};
+    spin.LocalSpace = true;
+    scene.AddRotator(cube, spin);
 
     return scene;
 }

@@ -7,6 +7,10 @@ namespace Nova {
 
 struct RenderViewport;
 class Window;
+struct TexturedMeshData;
+
+using MeshGpuHandle = uint32_t;
+constexpr MeshGpuHandle kDefaultMeshGpuHandle = 0;
 struct Camera;
 struct Mat4;
 struct Material;
@@ -48,7 +52,10 @@ public:
 
     /// Queue mesh draws for the current frame (flushed in EndFrame).
     virtual void ClearMeshDraws() = 0;
-    virtual void EnqueueMeshDraw(const Mat4& model, const Material& material) = 0;
+    virtual MeshGpuHandle CreateGpuMesh(const TexturedMeshData& mesh) = 0;
+    virtual void EnqueueMeshDraw(const Mat4& model,
+                                 const Material& material,
+                                 MeshGpuHandle mesh = kDefaultMeshGpuHandle) = 0;
 
     /// Metal MTLDevice* for editor UI backends. Null if unavailable.
     virtual void* GetNativeDevice() const = 0;

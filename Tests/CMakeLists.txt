@@ -17,6 +17,8 @@ add_executable(NovaTests
     SceneTest.cpp
     SceneSerializationTest.cpp
     ProjectTest.cpp
+    SceneRuntimeTest.cpp
+    ObjLoaderTest.cpp
 )
 
 target_compile_definitions(NovaTests PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
@@ -26,6 +28,7 @@ target_link_libraries(NovaTests PRIVATE
     NovaMath
     NovaRenderer
     NovaScene
+    NovaAssets
     GTest::gtest_main
 )
 

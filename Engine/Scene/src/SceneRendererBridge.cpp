@@ -1,5 +1,6 @@
 #include <Nova/Scene/SceneRendererBridge.h>
 
+#include <Nova/Assets/MeshCache.h>
 #include <Nova/Renderer/Camera.h>
 #include <Nova/Renderer/Lighting.h>
 #include <Nova/Renderer/Material.h>
@@ -24,7 +25,11 @@ bool BuildSceneCamera(const Scene& scene, float aspect, Camera& outCamera) {
     return true;
 }
 
-void RenderScene(const Scene& scene, IRenderer& renderer, float aspect, float timeSeconds) {
+void RenderScene(const Scene& scene,
+                 IRenderer& renderer,
+                 float aspect,
+                 const std::filesystem::path& projectRoot,
+                 MeshAssetCache& meshCache) {
     Camera camera;
     if (BuildSceneCamera(scene, aspect, camera)) {
         renderer.SetCamera(camera);
@@ -48,14 +53,14 @@ void RenderScene(const Scene& scene, IRenderer& renderer, float aspect, float ti
         const Transform& meshXform = scene.GetTransform(entity);
         const MeshRendererComponent& mesh = scene.GetMeshRenderer(entity);
 
-        Mat4 model = meshXform.ToMatrix();
-        if (timeSeconds >= 0.0f) {
-            model = model * Mat4::RotateY(-timeSeconds * 0.8f) * Mat4::RotateX(-timeSeconds * 0.35f);
+        MeshGpuHandle gpuMesh = kDefaultMeshGpuHandle;
+        if (!mesh.AssetPath.empty()) {
+            gpuMesh = meshCache.Resolve(renderer, projectRoot, mesh.AssetPath);
         }
 
         Material material;
         material.ReceiveShadows = mesh.ReceiveShadows;
-        renderer.EnqueueMeshDraw(model, material);
+        renderer.EnqueueMeshDraw(meshXform.ToMatrix(), material, gpuMesh);
     });
 }
 

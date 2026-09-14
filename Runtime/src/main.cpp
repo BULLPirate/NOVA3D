@@ -6,7 +6,9 @@
 #include <Nova/Scene/SceneSerialization.h>
 #include <Nova/Renderer/Renderer.h>
 
+#include <Nova/Assets/MeshCache.h>
 #include <Nova/Scene/SceneRendererBridge.h>
+#include <Nova/Scene/SceneRuntime.h>
 
 #include <SDL3/SDL.h>
 
@@ -89,6 +91,15 @@ int main(int argc, char** argv) {
         }
         NOVA_LOG_INFO("Scene entities: {}", scene.EntityCount());
 
+        Nova::ProjectDescriptor project;
+        std::filesystem::path projectRoot = NOVA_SOURCE_DIR;
+        if (Nova::LoadProject(NOVA_SOURCE_DIR, project).Ok) {
+            projectRoot = project.Root;
+        }
+
+        Nova::MeshAssetCache meshCache;
+        Uint64 lastTicks = SDL_GetTicks();
+
         while (!window.ShouldClose()) {
             input.BeginFrame();
             window.PollEvents(input);
@@ -102,8 +113,11 @@ int main(int argc, char** argv) {
             const float aspect = fbH > 0 ? static_cast<float>(fbW) / static_cast<float>(fbH)
                                          : 16.0f / 9.0f;
 
-            const float t = static_cast<float>(SDL_GetTicks()) * 0.001f;
-            Nova::RenderScene(scene, *renderer, aspect, t);
+            const Uint64 now = SDL_GetTicks();
+            const float dt = static_cast<float>(now - lastTicks) * 0.001f;
+            lastTicks = now;
+            Nova::TickScene(scene, dt);
+            Nova::RenderScene(scene, *renderer, aspect, projectRoot, meshCache);
 
             renderer->BeginFrame();
             renderer->BeginDrawing();

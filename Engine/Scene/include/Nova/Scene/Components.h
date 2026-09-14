@@ -15,7 +15,15 @@ enum class MeshPrimitive : uint8_t {
 
 struct MeshRendererComponent {
     MeshPrimitive Primitive = MeshPrimitive::UnitCube;
+    /// Project-relative path, e.g. Assets/Models/hero.obj. Empty = use Primitive.
+    std::string AssetPath;
     bool ReceiveShadows = false;
+};
+
+/// Continuous rotation (radians per second per axis).
+struct RotatorComponent {
+    Vec3 AngularVelocity{0.0f, 0.0f, 0.0f};
+    bool LocalSpace = true;
 };
 
 /// Camera uses entity Transform for position/rotation; looks at LookAtTarget.

@@ -11,8 +11,9 @@ add_library(NovaScene STATIC
     src/Scene.cpp
     src/SceneSerialization.cpp
     src/SceneRendererBridge.cpp
+    src/SceneRuntime.cpp
     src/Project.cpp
 )
 
 target_include_directories(NovaScene PUBLIC include)
-target_link_libraries(NovaScene PUBLIC NovaMath NovaRenderer nlohmann_json::nlohmann_json)
+target_link_libraries(NovaScene PUBLIC NovaMath NovaRenderer NovaAssets nlohmann_json::nlohmann_json)

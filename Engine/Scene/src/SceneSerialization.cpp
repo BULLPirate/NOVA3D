@@ -116,9 +116,21 @@ json EntityToJson(const Scene& scene, Entity entity) {
 
     if (scene.HasMeshRenderer(entity)) {
         const MeshRendererComponent& mesh = scene.GetMeshRenderer(entity);
-        j["meshRenderer"] = {
+        json meshJson = {
             {"primitive", MeshPrimitiveToString(mesh.Primitive)},
             {"receiveShadows", mesh.ReceiveShadows},
+        };
+        if (!mesh.AssetPath.empty()) {
+            meshJson["asset"] = mesh.AssetPath;
+        }
+        j["meshRenderer"] = meshJson;
+    }
+
+    if (scene.HasRotator(entity)) {
+        const RotatorComponent& rot = scene.GetRotator(entity);
+        j["rotator"] = {
+            {"angularVelocity", Vec3ToJson(rot.AngularVelocity)},
+            {"localSpace", rot.LocalSpace},
         };
     }
 
@@ -180,7 +192,26 @@ bool EntityFromJson(const json& entityJson, Scene& scene, std::string& error) {
         if (meshJson.contains("receiveShadows")) {
             mesh.ReceiveShadows = meshJson["receiveShadows"].get<bool>();
         }
+        if (meshJson.contains("asset")) {
+            mesh.AssetPath = meshJson["asset"].get<std::string>();
+        }
         scene.AddMeshRenderer(entity, mesh);
+    }
+
+    if (entityJson.contains("rotator")) {
+        const json& rotJson = entityJson["rotator"];
+        if (!rotJson.is_object()) {
+            error = "rotator must be an object";
+            return false;
+        }
+        RotatorComponent rot;
+        if (rotJson.contains("angularVelocity")) {
+            if (!Vec3FromJson(rotJson["angularVelocity"], rot.AngularVelocity, error)) return false;
+        }
+        if (rotJson.contains("localSpace")) {
+            rot.LocalSpace = rotJson["localSpace"].get<bool>();
+        }
+        scene.AddRotator(entity, rot);
     }
 
     if (entityJson.contains("camera")) {
@@ -237,6 +268,7 @@ struct EntitySnapshot {
     std::optional<MeshRendererComponent> Mesh;
     std::optional<CameraComponent> Camera;
     std::optional<DirectionalLightComponent> Light;
+    std::optional<RotatorComponent> Rotator;
 };
 
 std::vector<EntitySnapshot> SnapshotScene(const Scene& scene) {
@@ -248,6 +280,7 @@ std::vector<EntitySnapshot> SnapshotScene(const Scene& scene) {
         if (scene.HasMeshRenderer(entity)) snap.Mesh = scene.GetMeshRenderer(entity);
         if (scene.HasCamera(entity)) snap.Camera = scene.GetCamera(entity);
         if (scene.HasDirectionalLight(entity)) snap.Light = scene.GetDirectionalLight(entity);
+        if (scene.HasRotator(entity)) snap.Rotator = scene.GetRotator(entity);
         snapshots.push_back(std::move(snap));
     });
     return snapshots;
@@ -378,8 +411,17 @@ bool ScenesEquivalent(const Scene& a, const Scene& b, float epsilon) {
 
         if (static_cast<bool>(sa.Mesh) != static_cast<bool>(sb.Mesh)) return false;
         if (sa.Mesh && (sa.Mesh->Primitive != sb.Mesh->Primitive ||
-                        sa.Mesh->ReceiveShadows != sb.Mesh->ReceiveShadows)) {
+                        sa.Mesh->ReceiveShadows != sb.Mesh->ReceiveShadows ||
+                        sa.Mesh->AssetPath != sb.Mesh->AssetPath)) {
             return false;
+        }
+
+        if (static_cast<bool>(sa.Rotator) != static_cast<bool>(sb.Rotator)) return false;
+        if (sa.Rotator) {
+            if (!Vec3Near(sa.Rotator->AngularVelocity, sb.Rotator->AngularVelocity, epsilon)) {
+                return false;
+            }
+            if (sa.Rotator->LocalSpace != sb.Rotator->LocalSpace) return false;
         }
 
         if (static_cast<bool>(sa.Camera) != static_cast<bool>(sb.Camera)) return false;

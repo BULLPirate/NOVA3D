@@ -5,7 +5,9 @@
 #include <Nova/Project/Project.h>
 #include <Nova/Scene/Scene.h>
 #include <Nova/Scene/SceneSerialization.h>
+#include <Nova/Assets/MeshCache.h>
 #include <Nova/Scene/SceneRendererBridge.h>
+#include <Nova/Scene/SceneRuntime.h>
 
 #include "FileDialog.h"
 #include "GameLauncher.h"
@@ -286,9 +288,12 @@ int main() {
     bool isPlaying = false;
     Nova::Scene playScene;
     Uint64 playStartTicks = 0;
+    Uint64 playLastTickMs = 0;
+    Nova::MeshAssetCache meshCache;
     auto startPlay = [&]() {
         playScene = Nova::CloneScene(scene);
         playStartTicks = SDL_GetTicks();
+        playLastTickMs = playStartTicks;
         isPlaying = true;
     };
     auto stopPlay = [&]() { isPlaying = false; };
@@ -531,9 +536,11 @@ int main() {
             window.GetFramebufferSize(fbW, fbH);
             const float aspect = fbH > 0 ? static_cast<float>(fbW) / static_cast<float>(fbH)
                                          : 16.0f / 9.0f;
-            const float playTime =
-                static_cast<float>(SDL_GetTicks() - playStartTicks) * 0.001f;
-            Nova::RenderScene(activeScene, *renderer, aspect, playTime);
+            const Uint64 nowMs = SDL_GetTicks();
+            const float dt = static_cast<float>(nowMs - playLastTickMs) * 0.001f;
+            playLastTickMs = nowMs;
+            Nova::TickScene(playScene, dt);
+            Nova::RenderScene(activeScene, *renderer, aspect, project.Root, meshCache);
             ImGui::Render();
             renderer->BeginDrawing();
             renderer->EndFrame();
@@ -604,6 +611,9 @@ int main() {
                 if (scene.HasMeshRenderer(entity)) {
                     label += " [Mesh]";
                 }
+                if (scene.HasRotator(entity)) {
+                    label += " [Rotator]";
+                }
                 if (ImGui::Selectable(label.c_str(), isSelected)) {
                     selected = entity;
                     renameBuffer[0] = '\0';
@@ -633,7 +643,28 @@ int main() {
                     sceneDirty = true;
                 }
                 if (scene.HasMeshRenderer(selected)) {
-                    ImGui::TextUnformatted("Mesh: UnitCube");
+                    Nova::MeshRendererComponent& mesh = scene.GetMeshRenderer(selected);
+                    ImGui::TextUnformatted("Mesh Renderer");
+                    char assetBuf[256] = {};
+                    std::snprintf(assetBuf, sizeof(assetBuf), "%s", mesh.AssetPath.c_str());
+                    if (ImGui::InputText("Asset (OBJ)", assetBuf, sizeof(assetBuf))) {
+                        mesh.AssetPath = assetBuf;
+                        sceneDirty = true;
+                    }
+                    ImGui::TextUnformatted("Empty asset = UnitCube primitive");
+                }
+                if (scene.HasRotator(selected)) {
+                    Nova::RotatorComponent& rot = scene.GetRotator(selected);
+                    ImGui::TextUnformatted("Rotator");
+                    if (ImGui::DragFloat3("Angular Vel", &rot.AngularVelocity.x, 0.02f)) {
+                        sceneDirty = true;
+                    }
+                    if (ImGui::Checkbox("Local Space", &rot.LocalSpace)) {
+                        sceneDirty = true;
+                    }
+                } else if (ImGui::Button("Add Rotator")) {
+                    scene.AddRotator(selected);
+                    sceneDirty = true;
                 }
                 if (scene.HasCamera(selected)) {
                     Nova::CameraComponent& cam = scene.GetCamera(selected);
@@ -811,7 +842,7 @@ int main() {
             renderAspect = fbH > 0 ? static_cast<float>(fbW) / static_cast<float>(fbH)
                                    : 16.0f / 9.0f;
         }
-        Nova::RenderScene(activeScene, *renderer, renderAspect, -1.0f);
+        Nova::RenderScene(activeScene, *renderer, renderAspect, project.Root, meshCache);
 
         ImGui::Render();
         renderer->BeginDrawing();

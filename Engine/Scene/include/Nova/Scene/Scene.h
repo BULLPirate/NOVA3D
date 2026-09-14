@@ -41,6 +41,11 @@ public:
     const DirectionalLightComponent& GetDirectionalLight(Entity entity) const;
     void AddDirectionalLight(Entity entity, DirectionalLightComponent light = {});
 
+    bool HasRotator(Entity entity) const;
+    RotatorComponent& GetRotator(Entity entity);
+    const RotatorComponent& GetRotator(Entity entity) const;
+    void AddRotator(Entity entity, RotatorComponent rotator = {});
+
     Entity FindPrimaryCamera() const;
     /// Marks entity as the sole primary camera (must already have CameraComponent).
     void SetPrimaryCamera(Entity entity);
@@ -64,6 +69,7 @@ private:
         std::optional<MeshRendererComponent> Mesh;
         std::optional<CameraComponent> Camera;
         std::optional<DirectionalLightComponent> Light;
+        std::optional<RotatorComponent> Rotator;
     };
 
     EntityRecord* GetRecord(Entity entity);

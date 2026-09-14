@@ -7,15 +7,13 @@ cmake -S . -B build
 cmake --build build --target NovaEditor Nova3D NovaTests
 ```
 
-## Запуск
+## Запуск (создание игры — через редактор)
 
 | Что | Команда |
 |-----|---------|
-| **Редактор** | `cd ~/Desktop/NOVA3D && ./Tools/run.sh editor` |
-| **Runtime** | `cd ~/Desktop/NOVA3D && ./Tools/run.sh game` |
-| **Игра (проект)** | `cd ~/Desktop/NOVA3D && ./Tools/run.sh game-project` |
-| **Тесты** | `./Tools/run.sh test` — только тесты, **окно не откроется** |
-| **Всё собрать** | `./Tools/run.sh build` |
+| **NOVA3D Editor** (сцены, ассеты, Play) | `cd ~/Desktop/NOVA3D && ./Tools/run.sh editor` |
+| **Тесты** | `cd ~/Desktop/NOVA3D && ./Tools/run.sh test` |
+| **Сборка** | `cd ~/Desktop/NOVA3D && ./Tools/run.sh build` |
 
 Если окна нет: Mission Control / другой рабочий стол; или вручную:
 

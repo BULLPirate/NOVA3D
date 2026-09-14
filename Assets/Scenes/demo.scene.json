@@ -40,6 +40,10 @@
       "meshRenderer": {
         "primitive": "UnitCube",
         "receiveShadows": false
+      },
+      "rotator": {
+        "angularVelocity": [0.35, 0.8, 0.0],
+        "localSpace": true
       }
     }
   ]
