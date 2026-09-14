@@ -36,4 +36,12 @@ struct Camera {
     }
 };
 
+/// Maps world position to viewport pixel coordinates (top-left origin). Returns false if behind camera.
+bool ProjectWorldToViewport(const Mat4& viewProjection,
+                            const Vec3& world,
+                            float viewportWidth,
+                            float viewportHeight,
+                            float& outX,
+                            float& outY);
+
 } // namespace Nova

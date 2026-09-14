@@ -5,6 +5,7 @@
 
 namespace Nova {
 
+struct RenderViewport;
 class Window;
 struct Camera;
 struct Mat4;
@@ -31,6 +32,9 @@ public:
 
     virtual void SetClearColor(float r, float g, float b, float a) = 0;
     virtual void OnResize(uint32_t width, uint32_t height) = 0;
+
+    /// Restrict mesh drawing to a sub-rectangle (editor viewport). Inactive = full framebuffer.
+    virtual void SetRenderViewport(const RenderViewport& viewport) = 0;
 
     /// View + projection for the current frame (call before BeginFrame).
     virtual void SetCamera(const Camera& camera) = 0;

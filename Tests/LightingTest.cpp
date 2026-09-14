@@ -3,6 +3,12 @@
 
 #include <cmath>
 
+TEST(Lighting, RayDirectionToTowardLight) {
+    const Nova::Vec3 ray{0.0f, -1.0f, 0.0f};
+    const Nova::Vec3 toward = Nova::LightDirectionTowardSurface(ray);
+    EXPECT_NEAR(toward.y, 1.0f, 1e-4f);
+}
+
 TEST(Lighting, DefaultDirectionalLightIsNormalized) {
     Nova::DirectionalLight light = Nova::DefaultDirectionalLight();
     EXPECT_NEAR(light.Direction.Length(), 1.0f, 1e-5f);

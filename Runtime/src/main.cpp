@@ -2,6 +2,7 @@
 #include <Nova/Core/Input.h>
 #include <Nova/Platform/Window.h>
 #include <Nova/Scene/Scene.h>
+#include <Nova/Project/Project.h>
 #include <Nova/Scene/SceneSerialization.h>
 #include <Nova/Renderer/Renderer.h>
 
@@ -9,9 +10,51 @@
 
 #include <SDL3/SDL.h>
 
+#include <cstring>
 #include <filesystem>
 
-int main() {
+namespace {
+
+std::filesystem::path ResolveRuntimeScenePath(int argc, char** argv) {
+    std::filesystem::path sceneArg;
+    std::filesystem::path projectArg;
+
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--scene") == 0 && i + 1 < argc) {
+            sceneArg = argv[++i];
+        } else if (std::strcmp(argv[i], "--project") == 0 && i + 1 < argc) {
+            projectArg = argv[++i];
+        }
+    }
+
+    const std::filesystem::path devRoot = NOVA_SOURCE_DIR;
+    Nova::ProjectDescriptor project;
+    if (!projectArg.empty()) {
+        if (Nova::LoadProject(projectArg, project).Ok) {
+            if (!sceneArg.empty()) {
+                return sceneArg.is_absolute() ? sceneArg : project.Root / sceneArg;
+            }
+            return project.LastOpenedSceneAbsolute();
+        }
+        NOVA_LOG_WARN("Failed to load project '{}'", projectArg.string());
+    }
+
+    if (Nova::LoadProject(devRoot, project).Ok) {
+        if (!sceneArg.empty()) {
+            return sceneArg.is_absolute() ? sceneArg : project.Root / sceneArg;
+        }
+        return project.LastOpenedSceneAbsolute();
+    }
+
+    if (!sceneArg.empty()) {
+        return sceneArg;
+    }
+    return devRoot / "Assets/Scenes/demo.scene.json";
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
     Nova::Log::Init();
 
     NOVA_LOG_INFO("NOVA3D Engine v0.1.0 — scene runtime");
@@ -33,8 +76,7 @@ int main() {
         }
         renderer->SetClearColor(0.08f, 0.09f, 0.12f, 1.0f);
 
-        const std::filesystem::path scenePath =
-            std::filesystem::path(NOVA_SOURCE_DIR) / "Assets/Scenes/demo.scene.json";
+        const std::filesystem::path scenePath = ResolveRuntimeScenePath(argc, argv);
 
         Nova::Scene scene;
         const Nova::SceneIOResult sceneLoad = Nova::LoadSceneFromFile(scenePath, scene);

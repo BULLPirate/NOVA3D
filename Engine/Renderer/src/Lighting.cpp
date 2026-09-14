@@ -4,6 +4,14 @@
 
 namespace Nova {
 
+Vec3 LightDirectionTowardSurface(const Vec3& rayDirectionWorld) {
+    const Vec3 ray = rayDirectionWorld.Normalized();
+    if (ray.LengthSq() < 1e-8f) {
+        return {0.0f, 1.0f, 0.0f};
+    }
+    return (ray * -1.0f).Normalized();
+}
+
 Mat4 ComputeDirectionalLightViewProjection(const Vec3& lightDirectionTowardLight,
                                            const Vec3& focus,
                                            float orthoHalfExtent,

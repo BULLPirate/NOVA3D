@@ -55,6 +55,34 @@ Entity Scene::CreateEntity(const std::string& name) {
     return Entity{PackEntityId(index, rec.Generation)};
 }
 
+Entity Scene::DuplicateEntity(Entity source) {
+    const EntityRecord* src = GetRecord(source);
+    if (!src || !src->Alive) {
+        return Entity{};
+    }
+
+    const std::string newName = src->Name + " Copy";
+    const Transform xform = src->LocalTransform;
+    const std::optional<MeshRendererComponent> mesh = src->Mesh;
+    const std::optional<CameraComponent> camera = src->Camera;
+    const std::optional<DirectionalLightComponent> light = src->Light;
+
+    Entity copy = CreateEntity(newName);
+    GetTransform(copy) = xform;
+    if (mesh) {
+        AddMeshRenderer(copy, *mesh);
+    }
+    if (camera) {
+        CameraComponent cam = *camera;
+        cam.IsPrimary = false;
+        AddCamera(copy, cam);
+    }
+    if (light) {
+        AddDirectionalLight(copy, *light);
+    }
+    return copy;
+}
+
 void Scene::DestroyEntity(Entity entity) {
     EntityRecord* rec = GetRecord(entity);
     if (!rec) return;
@@ -183,6 +211,17 @@ void Scene::AddDirectionalLight(Entity entity, DirectionalLightComponent light) 
     }
 }
 
+void Scene::SetPrimaryCamera(Entity entity) {
+    if (!HasCamera(entity)) {
+        return;
+    }
+    ForEachEntity([&](Entity e) {
+        if (HasCamera(e)) {
+            GetCamera(e).IsPrimary = (e.Id == entity.Id);
+        }
+    });
+}
+
 Entity Scene::FindPrimaryCamera() const {
     Entity found{Entity::kInvalidEntity};
     for (uint32_t i = 0; i < m_Entities.size(); ++i) {
@@ -216,7 +255,7 @@ Scene Scene::CreateDemoLevel() {
 
     Entity sun = scene.CreateEntity("Sun");
     DirectionalLightComponent light;
-    light.Direction = light.Direction.Normalized();
+    light.Direction = Vec3{0.45f, -0.88f, 0.15f}.Normalized();
     scene.AddDirectionalLight(sun, light);
 
     Entity cam = scene.CreateEntity("Main Camera");

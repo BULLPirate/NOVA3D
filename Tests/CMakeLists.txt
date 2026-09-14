@@ -16,6 +16,7 @@ add_executable(NovaTests
     LightingTest.cpp
     SceneTest.cpp
     SceneSerializationTest.cpp
+    ProjectTest.cpp
 )
 
 target_compile_definitions(NovaTests PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")

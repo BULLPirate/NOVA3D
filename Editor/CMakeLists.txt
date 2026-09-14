@@ -29,9 +29,15 @@ set_source_files_properties(${IMGUI_DIR}/backends/imgui_impl_metal.mm PROPERTIES
 
 target_link_libraries(NovaImGui PUBLIC SDL3::SDL3)
 
-add_executable(NovaEditor MACOSX_BUNDLE src/main.mm)
+add_executable(NovaEditor MACOSX_BUNDLE
+    src/main.mm
+    src/FileDialog.mm
+    src/GameLauncher.mm
+)
 
-set_source_files_properties(src/main.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+set_source_files_properties(src/main.mm src/FileDialog.mm src/GameLauncher.mm PROPERTIES
+    COMPILE_FLAGS "-fobjc-arc"
+)
 
 set_target_properties(NovaEditor PROPERTIES
     MACOSX_BUNDLE TRUE
@@ -40,7 +46,10 @@ set_target_properties(NovaEditor PROPERTIES
     INSTALL_RPATH "@executable_path/../Frameworks"
 )
 
-target_compile_definitions(NovaEditor PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
+target_compile_definitions(NovaEditor PRIVATE
+    "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+    "NOVA_BUILD_DIR=\"${CMAKE_BINARY_DIR}\""
+)
 
 target_link_libraries(NovaEditor PRIVATE
     NovaCore
@@ -52,6 +61,7 @@ target_link_libraries(NovaEditor PRIVATE
     "-framework Metal"
     "-framework QuartzCore"
     "-framework Foundation"
+    "-framework AppKit"
 )
 
 add_custom_command(TARGET NovaEditor POST_BUILD

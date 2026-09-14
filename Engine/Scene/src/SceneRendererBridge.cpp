@@ -6,19 +6,27 @@
 
 namespace Nova {
 
-void RenderScene(const Scene& scene, IRenderer& renderer, float aspect, float timeSeconds) {
+bool BuildSceneCamera(const Scene& scene, float aspect, Camera& outCamera) {
     Entity cameraEntity = scene.FindPrimaryCamera();
-    if (cameraEntity.IsValid() && scene.HasCamera(cameraEntity)) {
-        const Transform& camXform = scene.GetTransform(cameraEntity);
-        const CameraComponent& camComp = scene.GetCamera(cameraEntity);
+    if (!cameraEntity.IsValid() || !scene.HasCamera(cameraEntity)) {
+        return false;
+    }
 
-        Camera camera;
-        camera.Position = camXform.Position;
-        camera.Target = camComp.LookAtTarget;
-        camera.FovYRadians = camComp.FovYRadians;
-        camera.Aspect = aspect;
-        camera.NearPlane = camComp.NearPlane;
-        camera.FarPlane = camComp.FarPlane;
+    const Transform& camXform = scene.GetTransform(cameraEntity);
+    const CameraComponent& camComp = scene.GetCamera(cameraEntity);
+
+    outCamera.Position = camXform.Position;
+    outCamera.Target = camComp.LookAtTarget;
+    outCamera.FovYRadians = camComp.FovYRadians;
+    outCamera.Aspect = aspect;
+    outCamera.NearPlane = camComp.NearPlane;
+    outCamera.FarPlane = camComp.FarPlane;
+    return true;
+}
+
+void RenderScene(const Scene& scene, IRenderer& renderer, float aspect, float timeSeconds) {
+    Camera camera;
+    if (BuildSceneCamera(scene, aspect, camera)) {
         renderer.SetCamera(camera);
     }
 
@@ -26,7 +34,7 @@ void RenderScene(const Scene& scene, IRenderer& renderer, float aspect, float ti
         if (!scene.HasDirectionalLight(entity)) return;
         const DirectionalLightComponent& src = scene.GetDirectionalLight(entity);
         DirectionalLight light;
-        light.Direction = src.Direction.Normalized();
+        light.Direction = LightDirectionTowardSurface(src.Direction);
         light.Color = src.Color;
         light.Ambient = src.Ambient;
         renderer.SetDirectionalLight(light);

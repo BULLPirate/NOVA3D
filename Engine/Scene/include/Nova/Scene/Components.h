@@ -28,9 +28,10 @@ struct CameraComponent {
 };
 
 struct DirectionalLightComponent {
-    Vec3 Direction{0.35f, 0.85f, 0.4f};
+    /// World-space direction **light rays travel** (from sun toward the scene).
+    Vec3 Direction{0.45f, -0.88f, 0.15f};
     Vec3 Color{1.0f, 0.98f, 0.95f};
-    float Ambient = 0.32f;
+    float Ambient = 0.12f;
 };
 
 } // namespace Nova

@@ -1,12 +1,18 @@
-#include <Nova/Platform/Window.h>
+#include <Nova/Platform/MacApp.h>
 
 #import <AppKit/AppKit.h>
 
 namespace Nova {
 
-void ActivateCocoaApp() {
+void EnsureMacOSApplicationReady() {
     @autoreleasepool {
+        if (NSApp == nil) {
+            [NSApplication sharedApplication];
+        }
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+        if (![NSApp isRunning]) {
+            [NSApp finishLaunching];
+        }
         [NSApp activateIgnoringOtherApps:YES];
     }
 }

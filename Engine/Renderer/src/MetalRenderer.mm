@@ -1,4 +1,5 @@
 #include <Nova/Renderer/Renderer.h>
+#include <Nova/Renderer/RenderViewport.h>
 #include <Nova/Renderer/Camera.h>
 #include <Nova/Renderer/Mesh.h>
 #include <Nova/Renderer/Texture.h>
@@ -39,7 +40,7 @@ struct VertexIn {
 
 struct VertexOut {
     float4 position [[position]];
-    float3 worldNormal;
+    float3 normal;
     float3 worldPos;
     float2 texCoord;
 };
@@ -56,7 +57,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     float4 world = u.model * float4(in.position, 1.0);
     out.position = u.mvp * world;
     out.worldPos = world.xyz;
-    out.worldNormal = normalize((u.model * float4(in.normal, 0.0)).xyz);
+    out.normal = in.normal;
     out.texCoord = in.texCoord;
     return out;
 }
@@ -67,7 +68,7 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
                               depth2d<float> shadowMap [[texture(1)]],
                               sampler texSampler [[sampler(0)]],
                               sampler shadowSampler [[sampler(1)]]) {
-    float3 N = normalize(in.worldNormal);
+    float3 N = normalize((u.model * float4(in.normal, 0.0)).xyz);
     float3 L = normalize(u.lightDir.xyz);
     float NdotL = saturate(dot(N, L));
 
@@ -76,8 +77,8 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         base *= albedo.sample(texSampler, in.texCoord).rgb;
     }
 
-    float ambient = u.lightDir.w;
-    float3 diffuse = NdotL * u.lightColor.rgb;
+    const float ambient = u.lightDir.w;
+    const float3 diffuse = u.lightColor.rgb * NdotL;
 
     float shadow = 1.0;
     if (u.shadowParams.z > 0.5 && u.shadowParams.w > 0.5 && NdotL > 0.001) {
@@ -94,8 +95,8 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         }
     }
 
-    float shade = mix(1.0 - u.shadowParams.y, 1.0, shadow);
-    float3 lit = base * (ambient + diffuse * shade);
+    const float shade = mix(1.0 - u.shadowParams.y, 1.0, shadow);
+    const float3 lit = base * ambient + base * diffuse * shade;
     return float4(lit, u.tint.a);
 }
 )";
@@ -296,6 +297,8 @@ public:
         m_ClearColor = {r, g, b, a};
     }
 
+    void SetRenderViewport(const RenderViewport& viewport) override { m_Viewport = viewport; }
+
     void OnResize(uint32_t width, uint32_t height) override {
         if (width == 0 || height == 0) return;
         m_FbWidth = width;
@@ -353,14 +356,16 @@ private:
     void DrawIndexedMesh(id<MTLRenderCommandEncoder> encoder) {
         if (!m_Pipeline || !m_VertexBuffer || !m_IndexBuffer) return;
 
-        MTLViewport viewport{};
-        viewport.originX = 0;
-        viewport.originY = 0;
-        viewport.width = static_cast<double>(m_FbWidth);
-        viewport.height = static_cast<double>(m_FbHeight);
-        viewport.znear = 0.0;
-        viewport.zfar = 1.0;
-        [encoder setViewport:viewport];
+        if (!m_Viewport.Active) {
+            MTLViewport viewport{};
+            viewport.originX = 0;
+            viewport.originY = 0;
+            viewport.width = static_cast<double>(m_FbWidth);
+            viewport.height = static_cast<double>(m_FbHeight);
+            viewport.znear = 0.0;
+            viewport.zfar = 1.0;
+            [encoder setViewport:viewport];
+        }
         [encoder setRenderPipelineState:m_Pipeline];
         [encoder setDepthStencilState:m_DepthStencilState];
         [encoder setFrontFacingWinding:MTLWindingCounterClockwise];
@@ -379,7 +384,31 @@ private:
                      indexBufferOffset:0];
     }
 
+    void ApplyViewportScissor(id<MTLRenderCommandEncoder> encoder) {
+        if (!m_Viewport.Active || m_Viewport.Width == 0 || m_Viewport.Height == 0) {
+            return;
+        }
+        const double yBottom = static_cast<double>(m_FbHeight) - m_Viewport.Y - m_Viewport.Height;
+        MTLViewport vp = {
+            static_cast<double>(m_Viewport.X),
+            yBottom,
+            static_cast<double>(m_Viewport.Width),
+            static_cast<double>(m_Viewport.Height),
+            0.0,
+            1.0,
+        };
+        [encoder setViewport:vp];
+        MTLScissorRect scissor = {
+            m_Viewport.X,
+            static_cast<NSUInteger>(yBottom),
+            m_Viewport.Width,
+            m_Viewport.Height,
+        };
+        [encoder setScissorRect:scissor];
+    }
+
     void DrawQueuedMeshes(id<MTLRenderCommandEncoder> encoder) {
+        ApplyViewportScissor(encoder);
         if (m_MeshDraws.empty()) {
             DrawIndexedMesh(encoder);
             return;
@@ -677,6 +706,7 @@ private:
     Mat4 m_Model = Mat4::Identity();
     Mat4 m_ViewProj = Mat4::Identity();
     std::array<float, 4> m_ClearColor{0.08f, 0.09f, 0.12f, 1.0f};
+    RenderViewport m_Viewport{};
 
     id<MTLDevice>               m_Device = nil;
     id<MTLCommandQueue>         m_Queue = nil;

@@ -16,6 +16,8 @@ class Scene {
 public:
     Entity CreateEntity(const std::string& name = "Entity");
     void DestroyEntity(Entity entity);
+    /// Copies transform and all attached components. Name is set by caller after create.
+    Entity DuplicateEntity(Entity source);
     bool IsAlive(Entity entity) const;
 
     const std::string& GetName(Entity entity) const;
@@ -40,6 +42,8 @@ public:
     void AddDirectionalLight(Entity entity, DirectionalLightComponent light = {});
 
     Entity FindPrimaryCamera() const;
+    /// Marks entity as the sole primary camera (must already have CameraComponent).
+    void SetPrimaryCamera(Entity entity);
 
     void ForEachEntity(const std::function<void(Entity)>& fn) const;
 

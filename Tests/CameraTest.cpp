@@ -11,6 +11,20 @@ TEST(Camera, ViewProjectionNotIdentity) {
     EXPECT_NE(vp.m[0][0], I.m[0][0]);
 }
 
+TEST(Camera, ProjectWorldToViewportCenter) {
+    Camera cam;
+    cam.Position = {0.0f, 0.0f, 5.0f};
+    cam.Target = {0.0f, 0.0f, 0.0f};
+    cam.Aspect = 1.0f;
+
+    float sx = 0.0f;
+    float sy = 0.0f;
+    EXPECT_TRUE(ProjectWorldToViewport(cam.GetViewProjectionMatrix(), {0.0f, 0.0f, 0.0f},
+                                       800.0f, 600.0f, sx, sy));
+    EXPECT_NEAR(sx, 400.0f, 2.0f);
+    EXPECT_NEAR(sy, 300.0f, 2.0f);
+}
+
 TEST(Camera, OrbitChangesEyePosition) {
     Camera cam;
     cam.SetOrbit(0.0f, 2.0f, 0.0f);

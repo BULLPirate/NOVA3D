@@ -42,6 +42,33 @@ TEST(Scene, ClearRemovesEntities) {
     EXPECT_EQ(scene.EntityCount(), 0u);
 }
 
+TEST(Scene, DuplicateEntityCopiesComponents) {
+    Nova::Scene scene;
+    Nova::Entity cube = scene.CreateEntity("Cube");
+    scene.AddMeshRenderer(cube);
+    scene.GetTransform(cube).Position = {1.0f, 2.0f, 3.0f};
+
+    Nova::Entity copy = scene.DuplicateEntity(cube);
+    EXPECT_TRUE(copy.IsValid());
+    EXPECT_TRUE(scene.HasMeshRenderer(copy));
+    EXPECT_FLOAT_EQ(scene.GetTransform(copy).Position.y, 2.0f);
+    EXPECT_FALSE(scene.HasCamera(copy));
+}
+
+TEST(Scene, SetPrimaryCamera) {
+    Nova::Scene scene;
+    Nova::Entity a = scene.CreateEntity("CamA");
+    Nova::Entity b = scene.CreateEntity("CamB");
+    scene.AddCamera(a, {});
+    scene.AddCamera(b, {});
+    scene.GetCamera(a).IsPrimary = true;
+
+    scene.SetPrimaryCamera(b);
+    EXPECT_FALSE(scene.GetCamera(a).IsPrimary);
+    EXPECT_TRUE(scene.GetCamera(b).IsPrimary);
+    EXPECT_EQ(scene.FindPrimaryCamera().Id, b.Id);
+}
+
 TEST(Scene, TransformRoundTrip) {
     Nova::Scene scene;
     Nova::Entity e = scene.CreateEntity("T");

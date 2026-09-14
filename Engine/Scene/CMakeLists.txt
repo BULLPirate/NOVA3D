@@ -11,6 +11,7 @@ add_library(NovaScene STATIC
     src/Scene.cpp
     src/SceneSerialization.cpp
     src/SceneRendererBridge.cpp
+    src/Project.cpp
 )
 
 target_include_directories(NovaScene PUBLIC include)

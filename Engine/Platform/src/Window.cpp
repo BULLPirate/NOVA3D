@@ -1,4 +1,5 @@
 #include <Nova/Platform/Window.h>
+#include <Nova/Platform/MacApp.h>
 #include <Nova/Core/Log.h>
 #include <Nova/Core/Input.h>
 
@@ -7,7 +8,6 @@
 
 namespace Nova {
 
-void ActivateCocoaApp();
 void ForceOrderFrontCocoaWindow(void* nsWindow);
 
 Window::Window(const WindowProps& props)
@@ -56,7 +56,7 @@ Window::Window(const WindowProps& props)
 }
 
 void Window::BringToFront() {
-    ActivateCocoaApp();
+    EnsureMacOSApplicationReady();
     if (!m_Window) return;
 
     SDL_SetWindowAlwaysOnTop(m_Window, true);
