@@ -1,5 +1,7 @@
 #include <Nova/Renderer/Renderer.h>
 #include <Nova/Renderer/Camera.h>
+#include <Nova/Renderer/Mesh.h>
+#include <Nova/Math/Mat4.h>
 #include <Nova/Platform/Window.h>
 #include <Nova/Core/Log.h>
 
@@ -11,13 +13,12 @@
 
 namespace Nova {
 
-// Runtime MSL — viewProj from Nova::Camera (column-major Mat4).
-static const char* kTriangleShader = R"(
+static const char* kMeshShader = R"(
 #include <metal_stdlib>
 using namespace metal;
 
 struct FrameUniforms {
-    float4x4 viewProj;
+    float4x4 mvp;
 };
 
 struct VertexIn {
@@ -33,7 +34,7 @@ struct VertexOut {
 vertex VertexOut vertex_main(VertexIn in [[stage_in]],
                              constant FrameUniforms& u [[buffer(1)]]) {
     VertexOut out;
-    out.position = u.viewProj * float4(in.position, 1.0);
+    out.position = u.mvp * float4(in.position, 1.0);
     out.color = in.color;
     return out;
 }
@@ -43,13 +44,8 @@ fragment float4 fragment_main(VertexOut in [[stage_in]]) {
 }
 )";
 
-struct TriangleVertex {
-    float x, y, z;
-    float r, g, b, a;
-};
-
 struct FrameUniforms {
-    float viewProj[16];
+    float mvp[16];
 };
 
 class MetalRenderer final : public IRenderer {
@@ -97,7 +93,7 @@ public:
         window.GetFramebufferSize(fbW, fbH);
         OnResize(fbW, fbH);
 
-        if (!CreateTrianglePipeline()) {
+        if (!CreateMeshPipeline()) {
             Shutdown();
             return false;
         }
@@ -116,7 +112,9 @@ public:
         m_CommandBuffer = nil;
         m_Pipeline = nil;
         m_VertexBuffer = nil;
+        m_IndexBuffer = nil;
         m_UniformBuffer = nil;
+        m_DepthTexture = nil;
         m_Layer = nil;
         m_Queue = nil;
         m_Device = nil;
@@ -148,6 +146,13 @@ public:
         pass.colorAttachments[0].clearColor = MTLClearColorMake(
             m_ClearColor[0], m_ClearColor[1], m_ClearColor[2], m_ClearColor[3]);
 
+        if (m_DepthTexture) {
+            pass.depthAttachment.texture = m_DepthTexture;
+            pass.depthAttachment.loadAction = MTLLoadActionClear;
+            pass.depthAttachment.storeAction = MTLStoreActionDontCare;
+            pass.depthAttachment.clearDepth = 1.0;
+        }
+
         m_CommandBuffer = [m_Queue commandBuffer];
         m_Encoder = [m_CommandBuffer renderCommandEncoderWithDescriptor:pass];
     }
@@ -156,7 +161,7 @@ public:
         if (!m_CommandBuffer) return;
 
         if (m_Encoder) {
-            if (m_Pipeline && m_VertexBuffer) {
+            if (m_Pipeline && m_VertexBuffer && m_IndexBuffer) {
                 MTLViewport viewport{};
                 viewport.originX = 0;
                 viewport.originY = 0;
@@ -168,9 +173,11 @@ public:
                 [m_Encoder setRenderPipelineState:m_Pipeline];
                 [m_Encoder setVertexBuffer:m_VertexBuffer offset:0 atIndex:0];
                 [m_Encoder setVertexBuffer:m_UniformBuffer offset:0 atIndex:1];
-                [m_Encoder drawPrimitives:MTLPrimitiveTypeTriangle
-                              vertexStart:0
-                              vertexCount:m_VertexCount];
+                [m_Encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                                      indexCount:m_IndexCount
+                                       indexType:MTLIndexTypeUInt32
+                                     indexBuffer:m_IndexBuffer
+                               indexBufferOffset:0];
             }
             [m_Encoder endEncoding];
             m_Encoder = nil;
@@ -198,20 +205,44 @@ public:
                                               static_cast<CGFloat>(height));
             NOVA_LOG_DEBUG("Metal drawable resized to {}x{}", width, height);
         }
+        RecreateDepthTexture(width, height);
     }
 
     void SetCamera(const Camera& camera) override {
-        const Mat4 vp = camera.GetViewProjectionMatrix();
-        std::memcpy(m_Uniforms.viewProj, vp.Data(), sizeof(m_Uniforms.viewProj));
+        m_ViewProj = camera.GetViewProjectionMatrix();
+        UploadMvp();
+    }
+
+    void SetModelMatrix(const Mat4& model) override {
+        m_Model = model;
+        UploadMvp();
+    }
+
+private:
+    void UploadMvp() {
+        const Mat4 mvp = m_ViewProj * m_Model;
+        std::memcpy(m_Uniforms.mvp, mvp.Data(), sizeof(m_Uniforms.mvp));
         if (m_UniformBuffer) {
             std::memcpy([m_UniformBuffer contents], &m_Uniforms, sizeof(m_Uniforms));
         }
     }
 
-private:
-    bool CreateTrianglePipeline() {
+    void RecreateDepthTexture(uint32_t width, uint32_t height) {
+        if (!m_Device || width == 0 || height == 0) return;
+
+        MTLTextureDescriptor* desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float
+                                                                                          width:width
+                                                                                         height:height
+                                                                                      mipmapped:NO];
+        desc.usage = MTLTextureUsageRenderTarget;
+        desc.storageMode = MTLStorageModePrivate;
+        m_DepthTexture = [m_Device newTextureWithDescriptor:desc];
+        m_DepthTexture.label = @"NovaDepth";
+    }
+
+    bool CreateMeshPipeline() {
         NSError* error = nil;
-        id<MTLLibrary> library = [m_Device newLibraryWithSource:@(kTriangleShader)
+        id<MTLLibrary> library = [m_Device newLibraryWithSource:@(kMeshShader)
                                                         options:nil
                                                           error:&error];
         if (!library) {
@@ -234,16 +265,17 @@ private:
         vertexDesc.attributes[1].format = MTLVertexFormatFloat4;
         vertexDesc.attributes[1].offset = sizeof(float) * 3;
         vertexDesc.attributes[1].bufferIndex = 0;
-        vertexDesc.layouts[0].stride = sizeof(TriangleVertex);
+        vertexDesc.layouts[0].stride = sizeof(ColoredVertex);
         vertexDesc.layouts[0].stepRate = 1;
         vertexDesc.layouts[0].stepFunction = MTLVertexStepFunctionPerVertex;
 
         MTLRenderPipelineDescriptor* pipelineDesc = [[MTLRenderPipelineDescriptor alloc] init];
-        pipelineDesc.label = @"NovaTriangle";
+        pipelineDesc.label = @"NovaColoredMesh";
         pipelineDesc.vertexFunction = vs;
         pipelineDesc.fragmentFunction = fs;
         pipelineDesc.vertexDescriptor = vertexDesc;
         pipelineDesc.colorAttachments[0].pixelFormat = m_Layer.pixelFormat;
+        pipelineDesc.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float;
 
         m_Pipeline = [m_Device newRenderPipelineStateWithDescriptor:pipelineDesc error:&error];
         if (!m_Pipeline) {
@@ -252,25 +284,25 @@ private:
             return false;
         }
 
-        const TriangleVertex verts[] = {
-            {  0.0f,  0.55f,  0.0f,  1.00f, 0.25f, 0.25f, 1.0f },
-            { -0.55f, -0.45f, 0.0f,  0.25f, 1.00f, 0.30f, 1.0f },
-            {  0.55f, -0.45f, 0.0f,  0.25f, 0.45f, 1.00f, 1.0f },
-        };
-        m_VertexCount = 3;
-        m_VertexBuffer = [m_Device newBufferWithBytes:verts
-                                               length:sizeof(verts)
+        const MeshData cube = CreateUnitCubeMesh();
+        m_IndexCount = static_cast<NSUInteger>(cube.Indices.size());
+        m_VertexBuffer = [m_Device newBufferWithBytes:cube.Vertices.data()
+                                               length:cube.Vertices.size() * sizeof(ColoredVertex)
                                               options:MTLResourceStorageModeShared];
-        m_VertexBuffer.label = @"NovaTriangleVB";
+        m_VertexBuffer.label = @"NovaMeshVB";
+        m_IndexBuffer = [m_Device newBufferWithBytes:cube.Indices.data()
+                                              length:cube.Indices.size() * sizeof(uint32_t)
+                                             options:MTLResourceStorageModeShared];
+        m_IndexBuffer.label = @"NovaMeshIB";
 
         m_UniformBuffer = [m_Device newBufferWithLength:sizeof(FrameUniforms)
                                                 options:MTLResourceStorageModeShared];
         m_UniformBuffer.label = @"NovaFrameUBO";
-        Mat4 identity = Mat4::Identity();
-        std::memcpy(m_Uniforms.viewProj, identity.Data(), sizeof(m_Uniforms.viewProj));
-        std::memcpy([m_UniformBuffer contents], &m_Uniforms, sizeof(m_Uniforms));
+        m_Model = Mat4::Identity();
+        m_ViewProj = Mat4::Identity();
+        UploadMvp();
 
-        NOVA_LOG_INFO("Triangle pipeline ready (3D + camera uniforms)");
+        NOVA_LOG_INFO("Mesh pipeline ready (indexed cube + depth buffer)");
         return true;
     }
 
@@ -278,7 +310,9 @@ private:
     Window* m_Window = nullptr;
     uint32_t m_FbWidth = 0;
     uint32_t m_FbHeight = 0;
-    NSUInteger m_VertexCount = 0;
+    NSUInteger m_IndexCount = 0;
+    Mat4 m_Model = Mat4::Identity();
+    Mat4 m_ViewProj = Mat4::Identity();
     std::array<float, 4> m_ClearColor{0.08f, 0.09f, 0.12f, 1.0f};
 
     id<MTLDevice>               m_Device = nil;
@@ -289,7 +323,9 @@ private:
     id<MTLRenderCommandEncoder> m_Encoder = nil;
     id<MTLRenderPipelineState>  m_Pipeline = nil;
     id<MTLBuffer>               m_VertexBuffer = nil;
+    id<MTLBuffer>               m_IndexBuffer = nil;
     id<MTLBuffer>               m_UniformBuffer = nil;
+    id<MTLTexture>                m_DepthTexture = nil;
     FrameUniforms               m_Uniforms{};
 };
 

@@ -1,5 +1,6 @@
 add_library(NovaRenderer STATIC
     src/MetalRenderer.mm
+    src/Mesh.cpp
 )
 
 set_source_files_properties(src/MetalRenderer.mm PROPERTIES

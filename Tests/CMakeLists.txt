@@ -11,6 +11,7 @@ add_executable(NovaTests
     InputTest.cpp
     RendererTest.cpp
     CameraTest.cpp
+    MeshTest.cpp
 )
 
 target_link_libraries(NovaTests PRIVATE

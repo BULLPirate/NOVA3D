@@ -7,6 +7,7 @@ namespace Nova {
 
 class Window;
 struct Camera;
+struct Mat4;
 
 /// Abstract GPU renderer. First backend is Metal (macOS).
 /// Lifetime: Init after Window is created, Shutdown before Window is destroyed.
@@ -28,6 +29,9 @@ public:
 
     /// View + projection for the current frame (call before BeginFrame).
     virtual void SetCamera(const Camera& camera) = 0;
+
+    /// Object transform in world space (call before BeginFrame).
+    virtual void SetModelMatrix(const Mat4& model) = 0;
 };
 
 /// Factory — currently always returns the Metal backend.
