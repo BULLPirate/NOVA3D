@@ -11,6 +11,7 @@ target_include_directories(NovaRenderer PUBLIC include)
 target_link_libraries(NovaRenderer PUBLIC
     NovaCore
     NovaPlatform
+    NovaMath
     "-framework Metal"
     "-framework QuartzCore"
     "-framework Foundation"

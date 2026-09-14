@@ -10,6 +10,7 @@ add_executable(NovaTests
     MathTest.cpp
     InputTest.cpp
     RendererTest.cpp
+    CameraTest.cpp
 )
 
 target_link_libraries(NovaTests PRIVATE

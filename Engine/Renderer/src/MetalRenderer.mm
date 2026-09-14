@@ -1,4 +1,5 @@
 #include <Nova/Renderer/Renderer.h>
+#include <Nova/Renderer/Camera.h>
 #include <Nova/Platform/Window.h>
 #include <Nova/Core/Log.h>
 
@@ -6,16 +7,21 @@
 #import <QuartzCore/CAMetalLayer.h>
 
 #include <array>
+#include <cstring>
 
 namespace Nova {
 
-// Clip-space triangle. Compiled at runtime — no xcrun metal / .metallib required.
+// Runtime MSL — viewProj from Nova::Camera (column-major Mat4).
 static const char* kTriangleShader = R"(
 #include <metal_stdlib>
 using namespace metal;
 
+struct FrameUniforms {
+    float4x4 viewProj;
+};
+
 struct VertexIn {
-    float2 position [[attribute(0)]];
+    float3 position [[attribute(0)]];
     float4 color    [[attribute(1)]];
 };
 
@@ -24,9 +30,10 @@ struct VertexOut {
     float4 color;
 };
 
-vertex VertexOut vertex_main(VertexIn in [[stage_in]]) {
+vertex VertexOut vertex_main(VertexIn in [[stage_in]],
+                             constant FrameUniforms& u [[buffer(1)]]) {
     VertexOut out;
-    out.position = float4(in.position, 0.0, 1.0);
+    out.position = u.viewProj * float4(in.position, 1.0);
     out.color = in.color;
     return out;
 }
@@ -37,8 +44,12 @@ fragment float4 fragment_main(VertexOut in [[stage_in]]) {
 )";
 
 struct TriangleVertex {
-    float x, y;
+    float x, y, z;
     float r, g, b, a;
+};
+
+struct FrameUniforms {
+    float viewProj[16];
 };
 
 class MetalRenderer final : public IRenderer {
@@ -105,6 +116,7 @@ public:
         m_CommandBuffer = nil;
         m_Pipeline = nil;
         m_VertexBuffer = nil;
+        m_UniformBuffer = nil;
         m_Layer = nil;
         m_Queue = nil;
         m_Device = nil;
@@ -155,6 +167,7 @@ public:
                 [m_Encoder setViewport:viewport];
                 [m_Encoder setRenderPipelineState:m_Pipeline];
                 [m_Encoder setVertexBuffer:m_VertexBuffer offset:0 atIndex:0];
+                [m_Encoder setVertexBuffer:m_UniformBuffer offset:0 atIndex:1];
                 [m_Encoder drawPrimitives:MTLPrimitiveTypeTriangle
                               vertexStart:0
                               vertexCount:m_VertexCount];
@@ -187,6 +200,14 @@ public:
         }
     }
 
+    void SetCamera(const Camera& camera) override {
+        const Mat4 vp = camera.GetViewProjectionMatrix();
+        std::memcpy(m_Uniforms.viewProj, vp.Data(), sizeof(m_Uniforms.viewProj));
+        if (m_UniformBuffer) {
+            std::memcpy([m_UniformBuffer contents], &m_Uniforms, sizeof(m_Uniforms));
+        }
+    }
+
 private:
     bool CreateTrianglePipeline() {
         NSError* error = nil;
@@ -207,11 +228,11 @@ private:
         }
 
         MTLVertexDescriptor* vertexDesc = [[MTLVertexDescriptor alloc] init];
-        vertexDesc.attributes[0].format = MTLVertexFormatFloat2;
+        vertexDesc.attributes[0].format = MTLVertexFormatFloat3;
         vertexDesc.attributes[0].offset = 0;
         vertexDesc.attributes[0].bufferIndex = 0;
         vertexDesc.attributes[1].format = MTLVertexFormatFloat4;
-        vertexDesc.attributes[1].offset = sizeof(float) * 2;
+        vertexDesc.attributes[1].offset = sizeof(float) * 3;
         vertexDesc.attributes[1].bufferIndex = 0;
         vertexDesc.layouts[0].stride = sizeof(TriangleVertex);
         vertexDesc.layouts[0].stepRate = 1;
@@ -232,9 +253,9 @@ private:
         }
 
         const TriangleVertex verts[] = {
-            {  0.0f,  0.60f,  1.00f, 0.25f, 0.25f, 1.0f },
-            { -0.60f, -0.50f,  0.25f, 1.00f, 0.30f, 1.0f },
-            {  0.60f, -0.50f,  0.25f, 0.45f, 1.00f, 1.0f },
+            {  0.0f,  0.55f,  0.0f,  1.00f, 0.25f, 0.25f, 1.0f },
+            { -0.55f, -0.45f, 0.0f,  0.25f, 1.00f, 0.30f, 1.0f },
+            {  0.55f, -0.45f, 0.0f,  0.25f, 0.45f, 1.00f, 1.0f },
         };
         m_VertexCount = 3;
         m_VertexBuffer = [m_Device newBufferWithBytes:verts
@@ -242,7 +263,14 @@ private:
                                               options:MTLResourceStorageModeShared];
         m_VertexBuffer.label = @"NovaTriangleVB";
 
-        NOVA_LOG_INFO("Triangle pipeline ready (runtime-compiled MSL)");
+        m_UniformBuffer = [m_Device newBufferWithLength:sizeof(FrameUniforms)
+                                                options:MTLResourceStorageModeShared];
+        m_UniformBuffer.label = @"NovaFrameUBO";
+        Mat4 identity = Mat4::Identity();
+        std::memcpy(m_Uniforms.viewProj, identity.Data(), sizeof(m_Uniforms.viewProj));
+        std::memcpy([m_UniformBuffer contents], &m_Uniforms, sizeof(m_Uniforms));
+
+        NOVA_LOG_INFO("Triangle pipeline ready (3D + camera uniforms)");
         return true;
     }
 
@@ -261,6 +289,8 @@ private:
     id<MTLRenderCommandEncoder> m_Encoder = nil;
     id<MTLRenderPipelineState>  m_Pipeline = nil;
     id<MTLBuffer>               m_VertexBuffer = nil;
+    id<MTLBuffer>               m_UniformBuffer = nil;
+    FrameUniforms               m_Uniforms{};
 };
 
 std::unique_ptr<IRenderer> CreateRenderer() {
