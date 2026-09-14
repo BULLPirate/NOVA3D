@@ -53,6 +53,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/Engine/Core/include
     ${CMAKE_SOURCE_DIR}/Engine/Platform/include
     ${CMAKE_SOURCE_DIR}/Engine/Math/include
+    ${CMAKE_SOURCE_DIR}/Engine/Renderer/include
 )
 
 # ── Subdirectories ─────────────────────────────────────────────────────────────

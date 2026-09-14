@@ -9,11 +9,13 @@ add_executable(NovaTests
     LogTest.cpp
     MathTest.cpp
     InputTest.cpp
+    RendererTest.cpp
 )
 
 target_link_libraries(NovaTests PRIVATE
     NovaCore
     NovaMath
+    NovaRenderer
     GTest::gtest_main
 )
 

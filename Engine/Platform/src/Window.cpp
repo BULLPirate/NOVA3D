@@ -3,8 +3,12 @@
 #include <Nova/Core/Input.h>
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_metal.h>
 
 namespace Nova {
+
+void ActivateCocoaApp();
+void ForceOrderFrontCocoaWindow(void* nsWindow);
 
 Window::Window(const WindowProps& props)
     : m_Width(props.Width), m_Height(props.Height)
@@ -14,12 +18,20 @@ Window::Window(const WindowProps& props)
         return;
     }
 
-    m_Window = SDL_CreateWindow(
-        props.Title.c_str(),
-        static_cast<int>(m_Width),
-        static_cast<int>(m_Height),
-        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
-    );
+    SDL_PropertiesID createProps = SDL_CreateProperties();
+    SDL_SetStringProperty(createProps, SDL_PROP_WINDOW_CREATE_TITLE_STRING, props.Title.c_str());
+    SDL_SetNumberProperty(createProps, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, m_Width);
+    SDL_SetNumberProperty(createProps, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, m_Height);
+    SDL_SetNumberProperty(createProps, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED);
+    SDL_SetNumberProperty(createProps, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
+    SDL_SetBooleanProperty(createProps, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
+    SDL_SetBooleanProperty(createProps, SDL_PROP_WINDOW_CREATE_HIGH_PIXEL_DENSITY_BOOLEAN, true);
+    SDL_SetBooleanProperty(createProps, SDL_PROP_WINDOW_CREATE_METAL_BOOLEAN, true);
+    SDL_SetBooleanProperty(createProps, SDL_PROP_WINDOW_CREATE_FOCUSABLE_BOOLEAN, true);
+    SDL_SetBooleanProperty(createProps, SDL_PROP_WINDOW_CREATE_ALWAYS_ON_TOP_BOOLEAN, true);
+
+    m_Window = SDL_CreateWindowWithProperties(createProps);
+    SDL_DestroyProperties(createProps);
 
     if (!m_Window) {
         NOVA_LOG_FATAL("SDL_CreateWindow failed: {}", SDL_GetError());
@@ -27,15 +39,75 @@ Window::Window(const WindowProps& props)
         return;
     }
 
-    NOVA_LOG_INFO("Window created: {} ({}x{})", props.Title, m_Width, m_Height);
+    m_MetalView = SDL_Metal_CreateView(m_Window);
+    if (!m_MetalView) {
+        NOVA_LOG_FATAL("SDL_Metal_CreateView failed: {}", SDL_GetError());
+        SDL_DestroyWindow(m_Window);
+        m_Window = nullptr;
+        SDL_Quit();
+        return;
+    }
+
+    SDL_ShowWindow(m_Window);
+    BringToFront();
+
+    NOVA_LOG_INFO("Window created: {} ({}x{}, scale {:.1f})",
+                  props.Title, m_Width, m_Height, GetContentScale());
+}
+
+void Window::BringToFront() {
+    ActivateCocoaApp();
+    if (!m_Window) return;
+
+    SDL_SetWindowAlwaysOnTop(m_Window, true);
+    SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    SDL_ShowWindow(m_Window);
+
+    SDL_PropertiesID winProps = SDL_GetWindowProperties(m_Window);
+    void* nsWindow = SDL_GetPointerProperty(winProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+    ForceOrderFrontCocoaWindow(nsWindow);
+
+    SDL_RaiseWindow(m_Window);
+    SDL_PumpEvents();
+
+    int x = 0, y = 0, w = 0, h = 0;
+    SDL_GetWindowPosition(m_Window, &x, &y);
+    SDL_GetWindowSize(m_Window, &w, &h);
+    const bool hidden = (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_HIDDEN) != 0;
+    NOVA_LOG_INFO("Window geometry: {}x{} at ({},{}), {}", w, h, x, y, hidden ? "HIDDEN" : "visible");
 }
 
 Window::~Window() {
+    if (m_MetalView) {
+        SDL_Metal_DestroyView(m_MetalView);
+        m_MetalView = nullptr;
+    }
     if (m_Window) {
         SDL_DestroyWindow(m_Window);
+        m_Window = nullptr;
     }
     SDL_Quit();
     NOVA_LOG_INFO("Window destroyed");
+}
+
+void Window::GetFramebufferSize(uint32_t& width, uint32_t& height) const {
+    int w = 0, h = 0;
+    if (m_Window) {
+        SDL_GetWindowSizeInPixels(m_Window, &w, &h);
+    }
+    width  = static_cast<uint32_t>(w);
+    height = static_cast<uint32_t>(h);
+}
+
+float Window::GetContentScale() const {
+    if (!m_Window) return 1.0f;
+    const float density = SDL_GetWindowPixelDensity(m_Window);
+    return density > 0.0f ? density : 1.0f;
+}
+
+void* Window::GetNativeMetalLayer() const {
+    if (!m_MetalView) return nullptr;
+    return SDL_Metal_GetLayer(m_MetalView);
 }
 
 void Window::PollEvents(Input& input) {

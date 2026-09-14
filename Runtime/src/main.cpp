@@ -1,43 +1,53 @@
 #include <Nova/Core/Log.h>
 #include <Nova/Core/Input.h>
 #include <Nova/Platform/Window.h>
-#include <Nova/Math/Math.h>
+#include <Nova/Renderer/Renderer.h>
 
 int main() {
     Nova::Log::Init();
 
-    NOVA_LOG_INFO("NOVA3D Engine v0.1.0 — Foundation");
+    NOVA_LOG_INFO("NOVA3D Engine v0.1.0 — Metal renderer");
 
     {
-        Nova::Window window({"NOVA3D", 1280, 720});
-        Nova::Input  input;
+        Nova::Window window({"NOVA3D — Metal", 1280, 720});
+        if (!window.IsValid()) {
+            NOVA_LOG_FATAL("Failed to create window");
+            Nova::Log::Shutdown();
+            return 1;
+        }
 
-        // Smoke test: math
-        Nova::Vec3 a{1, 0, 0};
-        Nova::Vec3 b{0, 1, 0};
-        auto c = a.Cross(b);
-        NOVA_LOG_INFO("Cross(1,0,0 x 0,1,0) = ({}, {}, {})", c.x, c.y, c.z);
+        Nova::Input input;
+        auto renderer = Nova::CreateRenderer();
+        if (!renderer->Init(window)) {
+            NOVA_LOG_FATAL("Failed to initialize renderer");
+            Nova::Log::Shutdown();
+            return 1;
+        }
 
-        auto proj = Nova::Mat4::Perspective(Nova::Radians(60.0f), 16.0f/9.0f, 0.1f, 100.0f);
-        NOVA_LOG_INFO("Perspective matrix created OK (m[0][0]={})", proj.m[0][0]);
+        // Bright cyan-blue: if Metal clear works, this cannot be mistaken for an empty window.
+        renderer->SetClearColor(0.10f, 0.55f, 0.90f, 1.0f);
 
-        // Main loop
-        NOVA_LOG_INFO("Entering main loop... Press Escape or close window to exit.");
+        NOVA_LOG_INFO("Entering main loop... Press Escape or close the window to exit.");
+        bool firstFrameLogged = false;
         while (!window.ShouldClose()) {
             input.BeginFrame();
             window.PollEvents(input);
 
-            // Example: log ESC key
             if (input.IsKeyPressed(Nova::KeyCode::Escape)) {
                 NOVA_LOG_INFO("Escape pressed — exiting.");
                 break;
             }
 
-            // Example: log mouse clicks
-            if (input.IsMouseButtonPressed(Nova::MouseButton::Left)) {
-                NOVA_LOG_INFO("Mouse click at ({}, {})", input.GetMouseX(), input.GetMouseY());
+            renderer->BeginFrame();
+            renderer->EndFrame();
+
+            if (!firstFrameLogged) {
+                NOVA_LOG_INFO("First Metal frame presented — window should be visible.");
+                firstFrameLogged = true;
             }
         }
+
+        renderer->Shutdown();
         NOVA_LOG_INFO("Main loop exited.");
     }
 
