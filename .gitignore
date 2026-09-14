@@ -11,6 +11,7 @@ out/
 *.swo
 *~
 .DS_Store
+imgui.ini
 
 # CMake
 CMakeFiles/

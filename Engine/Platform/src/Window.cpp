@@ -69,6 +69,7 @@ void Window::BringToFront() {
 
     SDL_RaiseWindow(m_Window);
     SDL_PumpEvents();
+    SDL_SetWindowAlwaysOnTop(m_Window, false);
 
     int x = 0, y = 0, w = 0, h = 0;
     SDL_GetWindowPosition(m_Window, &x, &y);

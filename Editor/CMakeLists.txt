@@ -35,7 +35,7 @@ set_source_files_properties(src/main.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
 
 set_target_properties(NovaEditor PROPERTIES
     MACOSX_BUNDLE TRUE
-    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/Runtime/Info.plist
+    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/Editor/Info.plist
     BUILD_RPATH "@executable_path/../Frameworks;${CMAKE_BINARY_DIR}/lib"
     INSTALL_RPATH "@executable_path/../Frameworks"
 )

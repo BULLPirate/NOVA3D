@@ -65,6 +65,15 @@ void ImGuiPassReady(void* renderPassDescriptor, void*) {
     ImGui_ImplMetal_NewFrame((__bridge MTLRenderPassDescriptor*)renderPassDescriptor);
 }
 
+void RotateTransform(Nova::Transform& transform, float deltaX, float deltaY) {
+    const float sensitivity = 0.008f;
+    const Nova::Quat qYaw =
+        Nova::Quat::FromAxisAngle({0.0f, 1.0f, 0.0f}, -deltaX * sensitivity);
+    const Nova::Quat qPitch =
+        Nova::Quat::FromAxisAngle({1.0f, 0.0f, 0.0f}, -deltaY * sensitivity);
+    transform.Rotation = (qYaw * qPitch * transform.Rotation).Normalized();
+}
+
 void ImGuiOverlay(void* commandBuffer, void* renderEncoder, void*) {
     ImDrawData* drawData = ImGui::GetDrawData();
     if (!drawData) return;
@@ -102,6 +111,7 @@ int main() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.IniFilename = nullptr;
     ImGui::StyleColorsDark();
     ImGui_ImplSDL3_InitForMetal(window.GetSDLWindow());
     ImGui_ImplMetal_Init((__bridge id<MTLDevice>)renderer->GetNativeDevice());
@@ -122,8 +132,7 @@ int main() {
     InitOrbitFromScene(scene, orbit);
 
     Nova::Entity selected{Nova::Entity::kInvalidEntity};
-    bool orbiting = false;
-
+    bool viewportHovered = false;
     while (!window.ShouldClose()) {
         input.BeginFrame();
         window.PollEvents(input, [](const SDL_Event& event) {
@@ -137,6 +146,15 @@ int main() {
         ImGui_ImplSDL3_NewFrame();
         renderer->BeginFrame();
         ImGui::NewFrame();
+
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, ImGuiInputFlags_RouteGlobal)) {
+            if (Nova::SceneIOResult save = Nova::SaveSceneToFile(scene, scenePath); save.Ok) {
+                sceneDirty = false;
+                NOVA_LOG_INFO("Scene saved to {}", scenePath.string());
+            } else {
+                NOVA_LOG_ERROR("Save failed: {}", save.Error);
+            }
+        }
 
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
@@ -165,11 +183,25 @@ int main() {
             ImGui::EndMainMenuBar();
         }
 
-        if (ImGui::Begin("Hierarchy")) {
+        const ImGuiViewport* mainViewport = ImGui::GetMainViewport();
+        const ImVec2 workPos = mainViewport->WorkPos;
+        const ImVec2 workSize = mainViewport->WorkSize;
+        constexpr float kSidePanelWidth = 280.0f;
+
+        ImGui::SetNextWindowPos(workPos);
+        ImGui::SetNextWindowSize(ImVec2(kSidePanelWidth, workSize.y));
+        ImGui::Begin("Hierarchy", nullptr,
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
             if (ImGui::Button("Add Cube")) {
                 Nova::Entity cube = scene.CreateEntity("Cube");
                 scene.AddMeshRenderer(cube);
                 selected = cube;
+                sceneDirty = true;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Delete") && selected.IsValid() && scene.IsAlive(selected)) {
+                scene.DestroyEntity(selected);
+                selected = Nova::Entity{};
                 sceneDirty = true;
             }
             ImGui::Separator();
@@ -179,10 +211,12 @@ int main() {
                     selected = entity;
                 }
             });
-        }
         ImGui::End();
 
-        if (ImGui::Begin("Inspector")) {
+        ImGui::SetNextWindowPos(ImVec2(workPos.x + workSize.x - kSidePanelWidth, workPos.y));
+        ImGui::SetNextWindowSize(ImVec2(kSidePanelWidth, workSize.y));
+        ImGui::Begin("Inspector", nullptr,
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
             if (selected.IsValid() && scene.IsAlive(selected)) {
                 ImGui::Text("Name: %s", scene.GetName(selected).c_str());
                 Nova::Transform& xform = scene.GetTransform(selected);
@@ -204,30 +238,61 @@ int main() {
             } else {
                 ImGui::TextUnformatted("Select an entity in Hierarchy.");
             }
-        }
         ImGui::End();
 
-        if (ImGui::Begin("Viewport")) {
-            ImGui::TextUnformatted("RMB drag: orbit camera | Scroll: zoom");
+        const float centerX = workPos.x + kSidePanelWidth;
+        const float centerW = workSize.x - kSidePanelWidth * 2.0f;
+        ImGui::SetNextWindowPos(ImVec2(centerX, workPos.y));
+        ImGui::SetNextWindowSize(ImVec2(centerW, workSize.y));
+        ImGui::Begin("Viewport", nullptr,
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+            ImGui::TextUnformatted("Click gray area below, then: LMB rotate | Shift+LMB move | RMB camera");
             ImGui::Text("Scene: %s", scenePath.filename().string().c_str());
-        }
+            const ImVec2 canvasSize = ImGui::GetContentRegionAvail();
+            ImVec2 size = canvasSize;
+            if (size.x < 64.0f) size.x = 64.0f;
+            if (size.y < 64.0f) size.y = 64.0f;
+            ImGui::InvisibleButton("##viewport_canvas", size,
+                                    ImGuiButtonFlags_MouseButtonLeft |
+                                        ImGuiButtonFlags_MouseButtonRight |
+                                        ImGuiButtonFlags_MouseButtonMiddle);
+            viewportHovered = ImGui::IsItemHovered();
+            if (viewportHovered) {
+                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+            }
         ImGui::End();
 
-        if (!ImGui::GetIO().WantCaptureMouse) {
+        if (viewportHovered) {
+            const float dx = input.GetMouseDeltaX();
+            const float dy = input.GetMouseDeltaY();
+            const bool shiftDown = input.IsKeyDown(Nova::KeyCode::LShift) ||
+                                   input.IsKeyDown(Nova::KeyCode::RShift);
+
+            if (selected.IsValid() && scene.IsAlive(selected)) {
+                Nova::Transform& xform = scene.GetTransform(selected);
+                if (input.IsMouseButtonDown(Nova::MouseButton::Left) && (dx != 0.0f || dy != 0.0f)) {
+                    if (shiftDown) {
+                        xform.Position.x += dx * 0.01f;
+                        xform.Position.y -= dy * 0.01f;
+                        sceneDirty = true;
+                    } else if (scene.HasMeshRenderer(selected)) {
+                        RotateTransform(xform, dx, dy);
+                        sceneDirty = true;
+                    }
+                }
+            }
+
             if (input.IsMouseButtonDown(Nova::MouseButton::Right)) {
-                orbit.YawRadians += input.GetMouseDeltaX() * 0.005f;
-                orbit.PitchRadians += input.GetMouseDeltaY() * 0.005f;
+                orbit.YawRadians += dx * 0.005f;
+                orbit.PitchRadians += dy * 0.005f;
                 orbit.PitchRadians = Nova::Clamp(orbit.PitchRadians, -1.4f, 1.4f);
-                orbiting = true;
                 sceneDirty = true;
             }
             if (input.GetScrollY() != 0.0f) {
-                orbit.Distance = Nova::Clamp(orbit.Distance - input.GetScrollY() * 0.25f, 0.8f, 30.0f);
+                orbit.Distance =
+                    Nova::Clamp(orbit.Distance - input.GetScrollY() * 0.25f, 0.8f, 30.0f);
                 sceneDirty = true;
             }
-        }
-        if (orbiting && !input.IsMouseButtonDown(Nova::MouseButton::Right)) {
-            orbiting = false;
         }
 
         SyncOrbitToScene(scene, orbit);
