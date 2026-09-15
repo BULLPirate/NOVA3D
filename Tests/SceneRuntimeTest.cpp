@@ -14,3 +14,13 @@ TEST(SceneRuntime, RotatorChangesOrientation) {
     const Nova::Quat after = scene.GetTransform(e).Rotation;
     EXPECT_LT(before.Dot(after), 0.999f);
 }
+
+TEST(SceneRuntime, MoverTranslatesPosition) {
+    Nova::Scene scene;
+    Nova::Entity e = scene.CreateEntity("Move");
+    scene.AddMover(e);
+    scene.GetMover(e).Velocity = {1.0f, 0.0f, 0.0f};
+
+    Nova::TickScene(scene, 2.0f);
+    EXPECT_NEAR(scene.GetTransform(e).Position.x, 2.0f, 1e-4f);
+}

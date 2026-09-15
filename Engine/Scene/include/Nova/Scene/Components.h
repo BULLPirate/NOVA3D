@@ -26,6 +26,11 @@ struct RotatorComponent {
     bool LocalSpace = true;
 };
 
+/// Linear motion in world space (units per second).
+struct MoverComponent {
+    Vec3 Velocity{0.0f, 0.0f, 0.0f};
+};
+
 /// Camera uses entity Transform for position/rotation; looks at LookAtTarget.
 struct CameraComponent {
     bool IsPrimary = false;

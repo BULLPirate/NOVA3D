@@ -647,7 +647,7 @@ int main() {
                     ImGui::TextUnformatted("Mesh Renderer");
                     char assetBuf[256] = {};
                     std::snprintf(assetBuf, sizeof(assetBuf), "%s", mesh.AssetPath.c_str());
-                    if (ImGui::InputText("Asset (OBJ)", assetBuf, sizeof(assetBuf))) {
+                    if (ImGui::InputText("Asset (OBJ/glTF)", assetBuf, sizeof(assetBuf))) {
                         mesh.AssetPath = assetBuf;
                         sceneDirty = true;
                     }
@@ -664,6 +664,16 @@ int main() {
                     }
                 } else if (ImGui::Button("Add Rotator")) {
                     scene.AddRotator(selected);
+                    sceneDirty = true;
+                }
+                if (scene.HasMover(selected)) {
+                    Nova::MoverComponent& mover = scene.GetMover(selected);
+                    ImGui::TextUnformatted("Mover");
+                    if (ImGui::DragFloat3("Velocity", &mover.Velocity.x, 0.02f)) {
+                        sceneDirty = true;
+                    }
+                } else if (ImGui::Button("Add Mover")) {
+                    scene.AddMover(selected);
                     sceneDirty = true;
                 }
                 if (scene.HasCamera(selected)) {

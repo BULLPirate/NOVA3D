@@ -52,6 +52,8 @@ build/bin/Nova3D.app/Contents/MacOS/Nova3D --scene /path/to/scene.scene.json
 - **Play → Run Standalone Game** (**Cmd+Shift+G**) — сохраняет сцену и открывает `Nova3D.app` с текущим файлом.
 - **Dup** / **Cmd+D** — дубликат выбранного объекта; имя в Inspector редактируется.
 
-Свет: entity **Sun** в Hierarchy → Inspector (Direction, Ambient).
+Свет: entity **Sun** в Hierarchy → Inspector (Ray Direction, Ambient).
+
+Модели: Inspector → **Asset (OBJ/glTF)** — пути вроде `Assets/Models/triangle.gltf` или `Assets/Models/pyramid.obj`.
 
 Лог: `~/Library/Logs/NOVA3D.log`

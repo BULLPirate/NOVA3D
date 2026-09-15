@@ -134,6 +134,11 @@ json EntityToJson(const Scene& scene, Entity entity) {
         };
     }
 
+    if (scene.HasMover(entity)) {
+        const MoverComponent& mover = scene.GetMover(entity);
+        j["mover"] = {{"velocity", Vec3ToJson(mover.Velocity)}};
+    }
+
     if (scene.HasCamera(entity)) {
         const CameraComponent& cam = scene.GetCamera(entity);
         j["camera"] = {
@@ -214,6 +219,19 @@ bool EntityFromJson(const json& entityJson, Scene& scene, std::string& error) {
         scene.AddRotator(entity, rot);
     }
 
+    if (entityJson.contains("mover")) {
+        const json& moverJson = entityJson["mover"];
+        if (!moverJson.is_object()) {
+            error = "mover must be an object";
+            return false;
+        }
+        MoverComponent mover;
+        if (moverJson.contains("velocity")) {
+            if (!Vec3FromJson(moverJson["velocity"], mover.Velocity, error)) return false;
+        }
+        scene.AddMover(entity, mover);
+    }
+
     if (entityJson.contains("camera")) {
         const json& camJson = entityJson["camera"];
         if (!camJson.is_object()) {
@@ -269,6 +287,7 @@ struct EntitySnapshot {
     std::optional<CameraComponent> Camera;
     std::optional<DirectionalLightComponent> Light;
     std::optional<RotatorComponent> Rotator;
+    std::optional<MoverComponent> Mover;
 };
 
 std::vector<EntitySnapshot> SnapshotScene(const Scene& scene) {
@@ -281,6 +300,7 @@ std::vector<EntitySnapshot> SnapshotScene(const Scene& scene) {
         if (scene.HasCamera(entity)) snap.Camera = scene.GetCamera(entity);
         if (scene.HasDirectionalLight(entity)) snap.Light = scene.GetDirectionalLight(entity);
         if (scene.HasRotator(entity)) snap.Rotator = scene.GetRotator(entity);
+        if (scene.HasMover(entity)) snap.Mover = scene.GetMover(entity);
         snapshots.push_back(std::move(snap));
     });
     return snapshots;
@@ -422,6 +442,11 @@ bool ScenesEquivalent(const Scene& a, const Scene& b, float epsilon) {
                 return false;
             }
             if (sa.Rotator->LocalSpace != sb.Rotator->LocalSpace) return false;
+        }
+
+        if (static_cast<bool>(sa.Mover) != static_cast<bool>(sb.Mover)) return false;
+        if (sa.Mover && !Vec3Near(sa.Mover->Velocity, sb.Mover->Velocity, epsilon)) {
+            return false;
         }
 
         if (static_cast<bool>(sa.Camera) != static_cast<bool>(sb.Camera)) return false;

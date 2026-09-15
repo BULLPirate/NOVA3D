@@ -46,6 +46,11 @@ public:
     const RotatorComponent& GetRotator(Entity entity) const;
     void AddRotator(Entity entity, RotatorComponent rotator = {});
 
+    bool HasMover(Entity entity) const;
+    MoverComponent& GetMover(Entity entity);
+    const MoverComponent& GetMover(Entity entity) const;
+    void AddMover(Entity entity, MoverComponent mover = {});
+
     Entity FindPrimaryCamera() const;
     /// Marks entity as the sole primary camera (must already have CameraComponent).
     void SetPrimaryCamera(Entity entity);
@@ -70,6 +75,7 @@ private:
         std::optional<CameraComponent> Camera;
         std::optional<DirectionalLightComponent> Light;
         std::optional<RotatorComponent> Rotator;
+        std::optional<MoverComponent> Mover;
     };
 
     EntityRecord* GetRecord(Entity entity);

@@ -19,6 +19,7 @@ add_executable(NovaTests
     ProjectTest.cpp
     SceneRuntimeTest.cpp
     ObjLoaderTest.cpp
+    GltfLoaderTest.cpp
 )
 
 target_compile_definitions(NovaTests PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")

@@ -27,6 +27,15 @@ void TickScene(Scene& scene, float deltaSeconds) {
             xform.Rotation = (qy * qx * qz * xform.Rotation).Normalized();
         }
     });
+
+    scene.ForEachEntity([&](Entity entity) {
+        if (!scene.HasMover(entity)) {
+            return;
+        }
+        const MoverComponent& mover = scene.GetMover(entity);
+        Transform& xform = scene.GetTransform(entity);
+        xform.Position = xform.Position + mover.Velocity * deltaSeconds;
+    });
 }
 
 } // namespace Nova

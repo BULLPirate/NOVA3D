@@ -1,6 +1,6 @@
 #include <Nova/Assets/MeshCache.h>
 
-#include <Nova/Assets/ObjLoader.h>
+#include <Nova/Assets/MeshLoader.h>
 #include <Nova/Core/Log.h>
 #include <Nova/Renderer/Mesh.h>
 
@@ -19,7 +19,7 @@ MeshGpuHandle MeshAssetCache::Resolve(IRenderer& renderer,
     }
 
     const std::filesystem::path absolute = projectRoot / relativeAssetPath;
-    AssetLoadResult loaded = LoadObjMesh(absolute);
+    AssetLoadResult loaded = LoadMeshAsset(absolute);
     if (!loaded.Ok) {
         NOVA_LOG_WARN("Mesh asset '{}': {} — using unit cube", relativeAssetPath, loaded.Error);
         m_Cache[relativeAssetPath] = kDefaultMeshGpuHandle;

@@ -52,6 +52,7 @@ Entity Scene::CreateEntity(const std::string& name) {
     rec.Camera.reset();
     rec.Light.reset();
     rec.Rotator.reset();
+    rec.Mover.reset();
 
     return Entity{PackEntityId(index, rec.Generation)};
 }
@@ -68,6 +69,7 @@ Entity Scene::DuplicateEntity(Entity source) {
     const std::optional<CameraComponent> camera = src->Camera;
     const std::optional<DirectionalLightComponent> light = src->Light;
     const std::optional<RotatorComponent> rotator = src->Rotator;
+    const std::optional<MoverComponent> mover = src->Mover;
 
     Entity copy = CreateEntity(newName);
     GetTransform(copy) = xform;
@@ -85,6 +87,9 @@ Entity Scene::DuplicateEntity(Entity source) {
     if (rotator) {
         AddRotator(copy, *rotator);
     }
+    if (mover) {
+        AddMover(copy, *mover);
+    }
     return copy;
 }
 
@@ -96,6 +101,7 @@ void Scene::DestroyEntity(Entity entity) {
     rec->Camera.reset();
     rec->Light.reset();
     rec->Rotator.reset();
+    rec->Mover.reset();
     if (rec->Generation < 255) {
         ++rec->Generation;
     }
@@ -241,6 +247,33 @@ const RotatorComponent& Scene::GetRotator(Entity entity) const {
 void Scene::AddRotator(Entity entity, RotatorComponent rotator) {
     if (EntityRecord* rec = GetRecord(entity)) {
         rec->Rotator = rotator;
+    }
+}
+
+bool Scene::HasMover(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    return rec && rec->Mover.has_value();
+}
+
+MoverComponent& Scene::GetMover(Entity entity) {
+    EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Mover) {
+        throw std::out_of_range("Scene::GetMover missing component");
+    }
+    return *rec->Mover;
+}
+
+const MoverComponent& Scene::GetMover(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Mover) {
+        throw std::out_of_range("Scene::GetMover missing component");
+    }
+    return *rec->Mover;
+}
+
+void Scene::AddMover(Entity entity, MoverComponent mover) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Mover = mover;
     }
 }
 
