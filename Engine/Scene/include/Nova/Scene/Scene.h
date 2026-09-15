@@ -11,7 +11,7 @@
 
 namespace Nova {
 
-/// In-memory scene graph (ECS-style storage, no hierarchy yet).
+/// In-memory scene graph (ECS-style storage with optional parent links).
 class Scene {
 public:
     Entity CreateEntity(const std::string& name = "Entity");
@@ -26,30 +26,41 @@ public:
     Transform& GetTransform(Entity entity);
     const Transform& GetTransform(Entity entity) const;
 
+    Entity GetParent(Entity entity) const;
+    void SetParent(Entity child, Entity parent);
+    Mat4 GetWorldMatrix(Entity entity) const;
+
+    Entity FindEntityByName(const std::string& name) const;
+
     bool HasMeshRenderer(Entity entity) const;
     MeshRendererComponent& GetMeshRenderer(Entity entity);
     const MeshRendererComponent& GetMeshRenderer(Entity entity) const;
     void AddMeshRenderer(Entity entity, MeshRendererComponent mesh = {});
+    void RemoveMeshRenderer(Entity entity);
 
     bool HasCamera(Entity entity) const;
     CameraComponent& GetCamera(Entity entity);
     const CameraComponent& GetCamera(Entity entity) const;
     void AddCamera(Entity entity, CameraComponent camera = {});
+    void RemoveCamera(Entity entity);
 
     bool HasDirectionalLight(Entity entity) const;
     DirectionalLightComponent& GetDirectionalLight(Entity entity);
     const DirectionalLightComponent& GetDirectionalLight(Entity entity) const;
     void AddDirectionalLight(Entity entity, DirectionalLightComponent light = {});
+    void RemoveDirectionalLight(Entity entity);
 
     bool HasRotator(Entity entity) const;
     RotatorComponent& GetRotator(Entity entity);
     const RotatorComponent& GetRotator(Entity entity) const;
     void AddRotator(Entity entity, RotatorComponent rotator = {});
+    void RemoveRotator(Entity entity);
 
     bool HasMover(Entity entity) const;
     MoverComponent& GetMover(Entity entity);
     const MoverComponent& GetMover(Entity entity) const;
     void AddMover(Entity entity, MoverComponent mover = {});
+    void RemoveMover(Entity entity);
 
     Entity FindPrimaryCamera() const;
     /// Marks entity as the sole primary camera (must already have CameraComponent).
@@ -64,6 +75,8 @@ public:
 
     /// Default playable level: primary camera, sun, one cube.
     static Scene CreateDemoLevel();
+    /// Sun + primary camera only (no placeholder mesh).
+    static Scene CreateEmptyLevel();
 
 private:
     struct EntityRecord {
@@ -71,6 +84,7 @@ private:
         bool Alive = false;
         std::string Name;
         Transform LocalTransform;
+        Entity Parent{};
         std::optional<MeshRendererComponent> Mesh;
         std::optional<CameraComponent> Camera;
         std::optional<DirectionalLightComponent> Light;

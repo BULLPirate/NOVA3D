@@ -12,6 +12,7 @@ add_library(NovaScene STATIC
     src/SceneSerialization.cpp
     src/SceneRendererBridge.cpp
     src/SceneRuntime.cpp
+    src/ScenePicking.cpp
     src/Project.cpp
 )
 

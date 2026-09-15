@@ -1,50 +1,49 @@
 {
-  "format": "nova.scene",
-  "version": 1,
   "entities": [
     {
+      "directionalLight": {
+        "ambient": 0.12,
+        "color": [1.0, 0.98, 0.95],
+        "direction": [0.44925081729888916, -0.8807054758071899, 0.15010564029216766]
+      },
       "name": "Sun",
       "transform": {
         "position": [0.0, 0.0, 0.0],
         "rotation": [0.0, 0.0, 0.0, 1.0],
         "scale": [1.0, 1.0, 1.0]
-      },
-      "directionalLight": {
-        "direction": [0.4508719, -0.8838835, 0.1506473],
-        "color": [1.0, 0.98, 0.95],
-        "ambient": 0.12
       }
     },
     {
+      "camera": {
+        "far": 100.0,
+        "fovYRadians": 1.0471975803375244,
+        "lookAt": [0.0, 0.0, 0.0],
+        "near": 0.1,
+        "primary": true
+      },
       "name": "Main Camera",
       "transform": {
         "position": [0.0, 0.35, 3.2],
         "rotation": [0.0, 0.0, 0.0, 1.0],
         "scale": [1.0, 1.0, 1.0]
-      },
-      "camera": {
-        "primary": true,
-        "lookAt": [0.0, 0.0, 0.0],
-        "fovYRadians": 1.0471976,
-        "near": 0.1,
-        "far": 100.0
       }
     },
     {
+      "meshRenderer": {
+        "albedoColor": [1.0, 1.0, 1.0],
+        "albedoTexture": "Assets/Textures/checker.png",
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": true
+      },
       "name": "Cube",
       "transform": {
         "position": [0.0, 0.0, 0.0],
         "rotation": [0.0, 0.0, 0.0, 1.0],
         "scale": [1.0, 1.0, 1.0]
-      },
-      "meshRenderer": {
-        "primitive": "UnitCube",
-        "receiveShadows": false
-      },
-      "rotator": {
-        "angularVelocity": [0.35, 0.8, 0.0],
-        "localSpace": true
       }
     }
-  ]
+  ],
+  "format": "nova.scene",
+  "version": 1
 }

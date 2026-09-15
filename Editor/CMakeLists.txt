@@ -31,9 +31,12 @@ target_link_libraries(NovaImGui PUBLIC SDL3::SDL3)
 
 add_executable(NovaEditor MACOSX_BUNDLE
     src/main.mm
+    src/ViewportManipulator.cpp
     src/FileDialog.mm
     src/GameLauncher.mm
 )
+
+target_include_directories(NovaEditor PRIVATE include)
 
 set_source_files_properties(src/main.mm src/FileDialog.mm src/GameLauncher.mm PROPERTIES
     COMPILE_FLAGS "-fobjc-arc"

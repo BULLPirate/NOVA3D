@@ -11,12 +11,17 @@ namespace Nova {
 
 enum class MeshPrimitive : uint8_t {
     UnitCube = 0,
+    UnitPlane = 1,
 };
 
 struct MeshRendererComponent {
     MeshPrimitive Primitive = MeshPrimitive::UnitCube;
     /// Project-relative path, e.g. Assets/Models/hero.obj. Empty = use Primitive.
     std::string AssetPath;
+    Vec3 AlbedoColor{1.0f, 1.0f, 1.0f};
+    /// Project-relative PNG, e.g. Assets/Textures/brick.png
+    std::string AlbedoTexturePath;
+    bool UseAlbedoTexture = true;
     bool ReceiveShadows = false;
 };
 

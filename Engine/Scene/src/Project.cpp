@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <fstream>
 
 namespace Nova {
@@ -188,6 +189,53 @@ std::filesystem::path MakeProjectRelativePath(const ProjectDescriptor& project,
         return rel;
     }
     return abs;
+}
+
+std::vector<std::filesystem::path> ListProjectScenes(const ProjectDescriptor& project) {
+    std::vector<std::filesystem::path> scenes;
+    const std::filesystem::path scenesDir = project.ScenesDirectory();
+    std::error_code ec;
+    if (!std::filesystem::is_directory(scenesDir, ec)) {
+        return scenes;
+    }
+
+    for (const std::filesystem::directory_entry& entry :
+         std::filesystem::directory_iterator(scenesDir, ec)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+        const std::filesystem::path file = entry.path();
+        if (file.extension() == ".json") {
+            scenes.push_back(MakeProjectRelativePath(project, file));
+        }
+    }
+
+    std::sort(scenes.begin(), scenes.end());
+    return scenes;
+}
+
+std::vector<std::filesystem::path> ListProjectAssets(const ProjectDescriptor& project) {
+    std::vector<std::filesystem::path> assets;
+    const std::filesystem::path assetsDir = project.Root / "Assets";
+    std::error_code ec;
+    if (!std::filesystem::is_directory(assetsDir, ec)) {
+        return assets;
+    }
+
+    for (const std::filesystem::directory_entry& entry :
+         std::filesystem::recursive_directory_iterator(assetsDir, ec)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+        const std::filesystem::path file = entry.path();
+        const std::string ext = file.extension().string();
+        if (ext == ".png" || ext == ".obj" || ext == ".gltf" || ext == ".glb") {
+            assets.push_back(MakeProjectRelativePath(project, file));
+        }
+    }
+
+    std::sort(assets.begin(), assets.end());
+    return assets;
 }
 
 } // namespace Nova

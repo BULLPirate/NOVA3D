@@ -53,6 +53,7 @@ Entity Scene::CreateEntity(const std::string& name) {
     rec.Light.reset();
     rec.Rotator.reset();
     rec.Mover.reset();
+    rec.Parent = Entity{};
 
     return Entity{PackEntityId(index, rec.Generation)};
 }
@@ -90,12 +91,23 @@ Entity Scene::DuplicateEntity(Entity source) {
     if (mover) {
         AddMover(copy, *mover);
     }
+    SetParent(copy, src->Parent);
     return copy;
 }
 
 void Scene::DestroyEntity(Entity entity) {
     EntityRecord* rec = GetRecord(entity);
     if (!rec) return;
+    ForEachEntity([&](Entity e) {
+        if (e.Id == entity.Id) {
+            return;
+        }
+        if (EntityRecord* child = GetRecord(e)) {
+            if (child->Parent.Id == entity.Id) {
+                child->Parent = Entity{};
+            }
+        }
+    });
     rec->Alive = false;
     rec->Mesh.reset();
     rec->Camera.reset();
@@ -169,6 +181,12 @@ void Scene::AddMeshRenderer(Entity entity, MeshRendererComponent mesh) {
     }
 }
 
+void Scene::RemoveMeshRenderer(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Mesh.reset();
+    }
+}
+
 bool Scene::HasCamera(Entity entity) const {
     const EntityRecord* rec = GetRecord(entity);
     return rec && rec->Camera.has_value();
@@ -193,6 +211,12 @@ const CameraComponent& Scene::GetCamera(Entity entity) const {
 void Scene::AddCamera(Entity entity, CameraComponent camera) {
     if (EntityRecord* rec = GetRecord(entity)) {
         rec->Camera = camera;
+    }
+}
+
+void Scene::RemoveCamera(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Camera.reset();
     }
 }
 
@@ -223,6 +247,12 @@ void Scene::AddDirectionalLight(Entity entity, DirectionalLightComponent light) 
     }
 }
 
+void Scene::RemoveDirectionalLight(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Light.reset();
+    }
+}
+
 bool Scene::HasRotator(Entity entity) const {
     const EntityRecord* rec = GetRecord(entity);
     return rec && rec->Rotator.has_value();
@@ -247,6 +277,12 @@ const RotatorComponent& Scene::GetRotator(Entity entity) const {
 void Scene::AddRotator(Entity entity, RotatorComponent rotator) {
     if (EntityRecord* rec = GetRecord(entity)) {
         rec->Rotator = rotator;
+    }
+}
+
+void Scene::RemoveRotator(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Rotator.reset();
     }
 }
 
@@ -275,6 +311,68 @@ void Scene::AddMover(Entity entity, MoverComponent mover) {
     if (EntityRecord* rec = GetRecord(entity)) {
         rec->Mover = mover;
     }
+}
+
+void Scene::RemoveMover(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Mover.reset();
+    }
+}
+
+Entity Scene::GetParent(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Parent.IsValid()) {
+        return Entity{};
+    }
+    if (!IsAlive(rec->Parent)) {
+        return Entity{};
+    }
+    return rec->Parent;
+}
+
+void Scene::SetParent(Entity child, Entity parent) {
+    EntityRecord* childRec = GetRecord(child);
+    if (!childRec) {
+        return;
+    }
+    if (!parent.IsValid()) {
+        childRec->Parent = Entity{};
+        return;
+    }
+    if (!IsAlive(parent) || child.Id == parent.Id) {
+        return;
+    }
+    Entity walk = parent;
+    while (walk.IsValid()) {
+        if (walk.Id == child.Id) {
+            return;
+        }
+        walk = GetParent(walk);
+    }
+    childRec->Parent = parent;
+}
+
+Mat4 Scene::GetWorldMatrix(Entity entity) const {
+    const Transform& local = GetTransform(entity);
+    const Mat4 localMatrix = local.ToMatrix();
+    const Entity parent = GetParent(entity);
+    if (!parent.IsValid()) {
+        return localMatrix;
+    }
+    return GetWorldMatrix(parent) * localMatrix;
+}
+
+Entity Scene::FindEntityByName(const std::string& name) const {
+    Entity found{};
+    ForEachEntity([&](Entity e) {
+        if (found.IsValid()) {
+            return;
+        }
+        if (GetName(e) == name) {
+            found = e;
+        }
+    });
+    return found;
 }
 
 void Scene::SetPrimaryCamera(Entity entity) {
@@ -332,12 +430,29 @@ Scene Scene::CreateDemoLevel() {
     scene.GetTransform(cam).Position = {0.0f, 0.35f, 3.2f};
 
     Entity cube = scene.CreateEntity("Cube");
-    scene.AddMeshRenderer(cube, {});
+    MeshRendererComponent cubeMesh;
+    cubeMesh.AlbedoTexturePath = "Assets/Textures/checker.png";
+    cubeMesh.UseAlbedoTexture = true;
+    scene.AddMeshRenderer(cube, cubeMesh);
     scene.GetTransform(cube).Position = {0.0f, 0.0f, 0.0f};
-    RotatorComponent spin;
-    spin.AngularVelocity = {0.35f, 0.8f, 0.0f};
-    spin.LocalSpace = true;
-    scene.AddRotator(cube, spin);
+
+    return scene;
+}
+
+Scene Scene::CreateEmptyLevel() {
+    Scene scene;
+
+    Entity sun = scene.CreateEntity("Sun");
+    DirectionalLightComponent light;
+    light.Direction = Vec3{0.45f, -0.88f, 0.15f}.Normalized();
+    scene.AddDirectionalLight(sun, light);
+
+    Entity cam = scene.CreateEntity("Main Camera");
+    CameraComponent camera;
+    camera.IsPrimary = true;
+    camera.LookAtTarget = {0.0f, 0.0f, 0.0f};
+    scene.AddCamera(cam, camera);
+    scene.GetTransform(cam).Position = {0.0f, 0.35f, 3.2f};
 
     return scene;
 }

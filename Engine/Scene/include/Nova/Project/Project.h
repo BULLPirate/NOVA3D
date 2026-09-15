@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace Nova {
 
@@ -49,5 +50,11 @@ ProjectIOResult InitializeNewProject(const std::filesystem::path& projectRoot,
 /// Makes a path relative to Root when possible; otherwise returns absolute path.
 std::filesystem::path MakeProjectRelativePath(const ProjectDescriptor& project,
                                               const std::filesystem::path& absolutePath);
+
+/// Sorted list of `.scene.json` / `.json` scene files under `Assets/Scenes`.
+std::vector<std::filesystem::path> ListProjectScenes(const ProjectDescriptor& project);
+
+/// Sorted project-relative asset paths under `Assets/` (models, textures).
+std::vector<std::filesystem::path> ListProjectAssets(const ProjectDescriptor& project);
 
 } // namespace Nova

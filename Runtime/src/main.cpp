@@ -7,6 +7,7 @@
 #include <Nova/Renderer/Renderer.h>
 
 #include <Nova/Assets/MeshCache.h>
+#include <Nova/Assets/TextureCache.h>
 #include <Nova/Scene/SceneRendererBridge.h>
 #include <Nova/Scene/SceneRuntime.h>
 
@@ -98,6 +99,7 @@ int main(int argc, char** argv) {
         }
 
         Nova::MeshAssetCache meshCache;
+        Nova::TextureAssetCache textureCache;
         Uint64 lastTicks = SDL_GetTicks();
 
         while (!window.ShouldClose()) {
@@ -117,7 +119,7 @@ int main(int argc, char** argv) {
             const float dt = static_cast<float>(now - lastTicks) * 0.001f;
             lastTicks = now;
             Nova::TickScene(scene, dt);
-            Nova::RenderScene(scene, *renderer, aspect, projectRoot, meshCache);
+            Nova::RenderScene(scene, *renderer, aspect, projectRoot, meshCache, textureCache);
 
             renderer->BeginFrame();
             renderer->BeginDrawing();

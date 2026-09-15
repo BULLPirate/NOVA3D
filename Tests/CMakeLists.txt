@@ -20,9 +20,19 @@ add_executable(NovaTests
     SceneRuntimeTest.cpp
     ObjLoaderTest.cpp
     GltfLoaderTest.cpp
+    PngLoaderTest.cpp
+    ViewportManipulatorTest.cpp
+    ScenePickingTest.cpp
+    EditorHistoryTest.cpp
 )
 
 target_compile_definitions(NovaTests PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
+
+target_sources(NovaTests PRIVATE
+    ${CMAKE_SOURCE_DIR}/Editor/src/ViewportManipulator.cpp
+)
+
+target_include_directories(NovaTests PRIVATE ${CMAKE_SOURCE_DIR}/Editor/include)
 
 target_link_libraries(NovaTests PRIVATE
     NovaCore

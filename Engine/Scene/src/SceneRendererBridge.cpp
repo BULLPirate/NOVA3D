@@ -1,6 +1,7 @@
 #include <Nova/Scene/SceneRendererBridge.h>
 
 #include <Nova/Assets/MeshCache.h>
+#include <Nova/Assets/TextureCache.h>
 #include <Nova/Renderer/Camera.h>
 #include <Nova/Renderer/Lighting.h>
 #include <Nova/Renderer/Material.h>
@@ -29,7 +30,8 @@ void RenderScene(const Scene& scene,
                  IRenderer& renderer,
                  float aspect,
                  const std::filesystem::path& projectRoot,
-                 MeshAssetCache& meshCache) {
+                 MeshAssetCache& meshCache,
+                 TextureAssetCache& textureCache) {
     Camera camera;
     if (BuildSceneCamera(scene, aspect, camera)) {
         renderer.SetCamera(camera);
@@ -50,17 +52,29 @@ void RenderScene(const Scene& scene,
     scene.ForEachEntity([&](Entity entity) {
         if (!scene.HasMeshRenderer(entity)) return;
 
-        const Transform& meshXform = scene.GetTransform(entity);
+        const Mat4 worldMatrix = scene.GetWorldMatrix(entity);
         const MeshRendererComponent& mesh = scene.GetMeshRenderer(entity);
 
         MeshGpuHandle gpuMesh = kDefaultMeshGpuHandle;
         if (!mesh.AssetPath.empty()) {
             gpuMesh = meshCache.Resolve(renderer, projectRoot, mesh.AssetPath);
+        } else if (mesh.Primitive == MeshPrimitive::UnitPlane) {
+            gpuMesh = kBuiltinPlaneMeshGpuHandle;
+        }
+
+        TextureGpuHandle gpuTex = kDefaultTextureGpuHandle;
+        if (mesh.UseAlbedoTexture && !mesh.AlbedoTexturePath.empty()) {
+            gpuTex = textureCache.Resolve(renderer, projectRoot, mesh.AlbedoTexturePath);
         }
 
         Material material;
+        material.TintR = mesh.AlbedoColor.x;
+        material.TintG = mesh.AlbedoColor.y;
+        material.TintB = mesh.AlbedoColor.z;
+        material.UseAlbedoTexture = mesh.UseAlbedoTexture;
         material.ReceiveShadows = mesh.ReceiveShadows;
-        renderer.EnqueueMeshDraw(meshXform.ToMatrix(), material, gpuMesh);
+
+        renderer.EnqueueMeshDraw(worldMatrix, material, gpuMesh, gpuTex);
     });
 }
 

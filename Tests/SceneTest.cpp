@@ -20,6 +20,18 @@ TEST(Scene, StaleHandleAfterDestroy) {
     EXPECT_NE(a.Id, b.Id);
 }
 
+TEST(Scene, EmptyLevelHasCameraAndLightOnly) {
+    Nova::Scene scene = Nova::Scene::CreateEmptyLevel();
+    int meshCount = 0;
+    scene.ForEachEntity([&](Nova::Entity e) {
+        if (scene.HasMeshRenderer(e)) {
+            ++meshCount;
+        }
+    });
+    EXPECT_EQ(meshCount, 0);
+    EXPECT_TRUE(scene.FindPrimaryCamera().IsValid());
+}
+
 TEST(Scene, DemoLevelHasCameraCubeAndLight) {
     Nova::Scene scene = Nova::Scene::CreateDemoLevel();
     Nova::Entity camera = scene.FindPrimaryCamera();
@@ -67,6 +79,20 @@ TEST(Scene, SetPrimaryCamera) {
     EXPECT_FALSE(scene.GetCamera(a).IsPrimary);
     EXPECT_TRUE(scene.GetCamera(b).IsPrimary);
     EXPECT_EQ(scene.FindPrimaryCamera().Id, b.Id);
+}
+
+TEST(Scene, ParentWorldMatrixCombinesTranslation) {
+    Nova::Scene scene;
+    Nova::Entity parent = scene.CreateEntity("Parent");
+    scene.GetTransform(parent).Position = {1.0f, 0.0f, 0.0f};
+    Nova::Entity child = scene.CreateEntity("Child");
+    scene.GetTransform(child).Position = {0.0f, 1.0f, 0.0f};
+    scene.SetParent(child, parent);
+
+    const Nova::Mat4 world = scene.GetWorldMatrix(child);
+    EXPECT_NEAR(world.m[3][0], 1.0f, 0.01f);
+    EXPECT_NEAR(world.m[3][1], 1.0f, 0.01f);
+    EXPECT_NEAR(world.m[3][2], 0.0f, 0.01f);
 }
 
 TEST(Scene, TransformRoundTrip) {

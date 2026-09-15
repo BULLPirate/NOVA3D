@@ -49,6 +49,27 @@ TEST(Project, MakeProjectRelativePath) {
     EXPECT_EQ(rel.generic_string(), "Assets/Scenes/a.json");
 }
 
+TEST(Project, ListProjectAssetsFindsChecker) {
+    Nova::ProjectDescriptor project;
+    ASSERT_TRUE(Nova::LoadProject(std::filesystem::path(NOVA_SOURCE_DIR), project).Ok);
+    const auto assets = Nova::ListProjectAssets(project);
+    bool found = false;
+    for (const std::filesystem::path& p : assets) {
+        if (p.generic_string().find("checker.png") != std::string::npos) {
+            found = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found);
+}
+
+TEST(Project, ListProjectScenesFindsDemo) {
+    Nova::ProjectDescriptor project;
+    ASSERT_TRUE(Nova::LoadProject(std::filesystem::path(NOVA_SOURCE_DIR), project).Ok);
+    const auto scenes = Nova::ListProjectScenes(project);
+    EXPECT_GE(scenes.size(), 1u);
+}
+
 TEST(Project, BundledRepoIsValidProject) {
     ASSERT_TRUE(std::filesystem::exists(
         std::filesystem::path(NOVA_SOURCE_DIR) / ".nova/project.json"));

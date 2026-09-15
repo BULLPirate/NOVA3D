@@ -25,6 +25,20 @@ TEST(Camera, ProjectWorldToViewportCenter) {
     EXPECT_NEAR(sy, 300.0f, 2.0f);
 }
 
+TEST(Camera, ViewportRayHitsOriginFromFront) {
+    Camera cam;
+    cam.Position = {0.0f, 0.0f, 5.0f};
+    cam.Target = {0.0f, 0.0f, 0.0f};
+    cam.Aspect = 1.0f;
+
+    Ray ray;
+    ASSERT_TRUE(ViewportPointToRay(cam, 200.0f, 200.0f, 400.0f, 400.0f, ray));
+    EXPECT_NEAR(ray.Origin.z, 5.0f, 0.05f);
+    EXPECT_LT(ray.Direction.z, -0.5f);
+    EXPECT_NEAR(ray.Direction.x, 0.0f, 0.08f);
+    EXPECT_NEAR(ray.Direction.y, 0.0f, 0.08f);
+}
+
 TEST(Camera, OrbitChangesEyePosition) {
     Camera cam;
     cam.SetOrbit(0.0f, 2.0f, 0.0f);

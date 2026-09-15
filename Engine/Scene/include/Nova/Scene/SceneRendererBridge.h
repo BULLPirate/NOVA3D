@@ -9,13 +9,15 @@
 namespace Nova {
 
 class MeshAssetCache;
+class TextureAssetCache;
 
 /// Maps scene components to the renderer for the current frame.
 void RenderScene(const Scene& scene,
                  IRenderer& renderer,
                  float aspect,
                  const std::filesystem::path& projectRoot,
-                 MeshAssetCache& meshCache);
+                 MeshAssetCache& meshCache,
+                 TextureAssetCache& textureCache);
 
 /// Fills camera from the scene primary camera (after orbit sync). Returns false if none.
 bool BuildSceneCamera(const Scene& scene, float aspect, Camera& outCamera);

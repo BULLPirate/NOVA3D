@@ -186,7 +186,7 @@ public:
         m_ShadowSampler = nil;
         m_GpuMeshes.clear();
         m_UniformBuffer = nil;
-        m_AlbedoTexture = nil;
+        m_GpuTextures.clear();
         m_Sampler = nil;
         m_DepthStencilState = nil;
         m_DepthTexture = nil;
@@ -291,10 +291,35 @@ public:
         return static_cast<MeshGpuHandle>(m_GpuMeshes.size() - 1);
     }
 
+    TextureGpuHandle CreateGpuTexture(const ImageRGBA& image) override {
+        if (!m_Device || !image.IsValid()) {
+            return kDefaultTextureGpuHandle;
+        }
+
+        MTLTextureDescriptor* desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                                                        width:image.Width
+                                                                                       height:image.Height
+                                                                                    mipmapped:NO];
+        desc.usage = MTLTextureUsageShaderRead;
+        id<MTLTexture> texture = [m_Device newTextureWithDescriptor:desc];
+        if (!texture) {
+            return kDefaultTextureGpuHandle;
+        }
+
+        MTLRegion region = MTLRegionMake2D(0, 0, image.Width, image.Height);
+        [texture replaceRegion:region
+                   mipmapLevel:0
+                     withBytes:image.Pixels.data()
+                   bytesPerRow:image.Width * 4];
+        m_GpuTextures.push_back(texture);
+        return static_cast<TextureGpuHandle>(m_GpuTextures.size() - 1);
+    }
+
     void EnqueueMeshDraw(const Mat4& model,
                          const Material& material,
-                         MeshGpuHandle meshHandle) override {
-        m_MeshDraws.push_back({model, material, meshHandle});
+                         MeshGpuHandle meshHandle,
+                         TextureGpuHandle albedoHandle) override {
+        m_MeshDraws.push_back({model, material, meshHandle, albedoHandle});
     }
 
     void* GetNativeDevice() const override {
@@ -366,6 +391,7 @@ private:
         Mat4 model;
         Material material;
         MeshGpuHandle mesh = kDefaultMeshGpuHandle;
+        TextureGpuHandle albedo = kDefaultTextureGpuHandle;
     };
 
     bool ShouldRenderShadowPass() const {
@@ -385,7 +411,16 @@ private:
         return m_GpuMeshes[kDefaultMeshGpuHandle];
     }
 
-    void DrawIndexedMesh(id<MTLRenderCommandEncoder> encoder, MeshGpuHandle meshHandle) {
+    id<MTLTexture> AlbedoTexture(TextureGpuHandle handle) const {
+        if (handle < m_GpuTextures.size() && m_GpuTextures[handle]) {
+            return m_GpuTextures[handle];
+        }
+        return m_GpuTextures.empty() ? nil : m_GpuTextures[kDefaultTextureGpuHandle];
+    }
+
+    void DrawIndexedMesh(id<MTLRenderCommandEncoder> encoder,
+                         MeshGpuHandle meshHandle,
+                         TextureGpuHandle albedoHandle) {
         const GpuMeshBuffers& gpu = MeshBuffers(meshHandle);
         if (!m_Pipeline || !gpu.VertexBuffer || !gpu.IndexBuffer || gpu.IndexCount == 0) return;
 
@@ -406,7 +441,7 @@ private:
         [encoder setVertexBuffer:gpu.VertexBuffer offset:0 atIndex:0];
         [encoder setVertexBuffer:m_UniformBuffer offset:0 atIndex:1];
         [encoder setFragmentBuffer:m_UniformBuffer offset:0 atIndex:1];
-        [encoder setFragmentTexture:m_AlbedoTexture atIndex:0];
+        [encoder setFragmentTexture:AlbedoTexture(albedoHandle) atIndex:0];
         [encoder setFragmentTexture:m_ShadowMap atIndex:1];
         [encoder setFragmentSamplerState:m_Sampler atIndex:0];
         [encoder setFragmentSamplerState:m_ShadowSampler atIndex:1];
@@ -443,7 +478,7 @@ private:
     void DrawQueuedMeshes(id<MTLRenderCommandEncoder> encoder) {
         ApplyViewportScissor(encoder);
         if (m_MeshDraws.empty()) {
-            DrawIndexedMesh(encoder, kDefaultMeshGpuHandle);
+            DrawIndexedMesh(encoder, kDefaultMeshGpuHandle, kDefaultTextureGpuHandle);
             return;
         }
 
@@ -451,7 +486,7 @@ private:
             m_Model = draw.model;
             m_Material = draw.material;
             UploadFrameUniforms();
-            DrawIndexedMesh(encoder, draw.mesh);
+            DrawIndexedMesh(encoder, draw.mesh, draw.albedo);
         }
     }
 
@@ -583,6 +618,7 @@ private:
 
         m_GpuMeshes.clear();
         CreateGpuMesh(CreateUnitCubeTexturedMesh());
+        CreateGpuMesh(CreateUnitPlaneTexturedMesh());
 
         if (!CreateDefaultAlbedoTexture()) {
             return false;
@@ -705,26 +741,13 @@ private:
     }
 
     bool CreateDefaultAlbedoTexture() {
+        m_GpuTextures.clear();
         const ImageRGBA image = CreateCheckerboardImage(128, 8);
         if (!image.IsValid()) {
             NOVA_LOG_FATAL("Failed to create checkerboard texture image");
             return false;
         }
-
-        MTLTextureDescriptor* desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
-                                                                                        width:image.Width
-                                                                                       height:image.Height
-                                                                                    mipmapped:NO];
-        desc.usage = MTLTextureUsageShaderRead;
-        m_AlbedoTexture = [m_Device newTextureWithDescriptor:desc];
-        m_AlbedoTexture.label = @"NovaAlbedo";
-
-        MTLRegion region = MTLRegionMake2D(0, 0, image.Width, image.Height);
-        [m_AlbedoTexture replaceRegion:region
-                           mipmapLevel:0
-                             withBytes:image.Pixels.data()
-                           bytesPerRow:image.Width * 4];
-        return true;
+        return CreateGpuTexture(image) == kDefaultTextureGpuHandle;
     }
 
     bool m_Initialized = false;
@@ -746,7 +769,7 @@ private:
     std::vector<GpuMeshBuffers> m_GpuMeshes;
     id<MTLBuffer>               m_UniformBuffer = nil;
     id<MTLTexture>                m_DepthTexture = nil;
-    id<MTLTexture>                m_AlbedoTexture = nil;
+    std::vector<id<MTLTexture>>     m_GpuTextures;
     id<MTLSamplerState>           m_Sampler = nil;
     id<MTLDepthStencilState>      m_DepthStencilState = nil;
     id<MTLRenderPipelineState>  m_ShadowPipeline = nil;

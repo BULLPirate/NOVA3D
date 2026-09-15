@@ -97,6 +97,7 @@ bool TransformFromJson(const json& j, Transform& out, std::string& error) {
 const char* MeshPrimitiveToString(MeshPrimitive p) {
     switch (p) {
     case MeshPrimitive::UnitCube: return "UnitCube";
+    case MeshPrimitive::UnitPlane: return "UnitPlane";
     }
     return "UnitCube";
 }
@@ -106,6 +107,10 @@ bool MeshPrimitiveFromString(const std::string& s, MeshPrimitive& out) {
         out = MeshPrimitive::UnitCube;
         return true;
     }
+    if (s == "UnitPlane") {
+        out = MeshPrimitive::UnitPlane;
+        return true;
+    }
     return false;
 }
 
@@ -113,6 +118,10 @@ json EntityToJson(const Scene& scene, Entity entity) {
     json j;
     j["name"] = scene.GetName(entity);
     j["transform"] = TransformToJson(scene.GetTransform(entity));
+    const Entity parent = scene.GetParent(entity);
+    if (parent.IsValid()) {
+        j["parent"] = scene.GetName(parent);
+    }
 
     if (scene.HasMeshRenderer(entity)) {
         const MeshRendererComponent& mesh = scene.GetMeshRenderer(entity);
@@ -123,6 +132,11 @@ json EntityToJson(const Scene& scene, Entity entity) {
         if (!mesh.AssetPath.empty()) {
             meshJson["asset"] = mesh.AssetPath;
         }
+        meshJson["albedoColor"] = Vec3ToJson(mesh.AlbedoColor);
+        if (!mesh.AlbedoTexturePath.empty()) {
+            meshJson["albedoTexture"] = mesh.AlbedoTexturePath;
+        }
+        meshJson["useAlbedoTexture"] = mesh.UseAlbedoTexture;
         j["meshRenderer"] = meshJson;
     }
 
@@ -199,6 +213,15 @@ bool EntityFromJson(const json& entityJson, Scene& scene, std::string& error) {
         }
         if (meshJson.contains("asset")) {
             mesh.AssetPath = meshJson["asset"].get<std::string>();
+        }
+        if (meshJson.contains("albedoColor")) {
+            if (!Vec3FromJson(meshJson["albedoColor"], mesh.AlbedoColor, error)) return false;
+        }
+        if (meshJson.contains("albedoTexture")) {
+            mesh.AlbedoTexturePath = meshJson["albedoTexture"].get<std::string>();
+        }
+        if (meshJson.contains("useAlbedoTexture")) {
+            mesh.UseAlbedoTexture = meshJson["useAlbedoTexture"].get<bool>();
         }
         scene.AddMeshRenderer(entity, mesh);
     }
@@ -282,6 +305,7 @@ bool EntityFromJson(const json& entityJson, Scene& scene, std::string& error) {
 
 struct EntitySnapshot {
     std::string Name;
+    std::string ParentName;
     Transform Transform;
     std::optional<MeshRendererComponent> Mesh;
     std::optional<CameraComponent> Camera;
@@ -295,6 +319,10 @@ std::vector<EntitySnapshot> SnapshotScene(const Scene& scene) {
     scene.ForEachEntity([&](Entity entity) {
         EntitySnapshot snap;
         snap.Name = scene.GetName(entity);
+        const Entity parent = scene.GetParent(entity);
+        if (parent.IsValid()) {
+            snap.ParentName = scene.GetName(parent);
+        }
         snap.Transform = scene.GetTransform(entity);
         if (scene.HasMeshRenderer(entity)) snap.Mesh = scene.GetMeshRenderer(entity);
         if (scene.HasCamera(entity)) snap.Camera = scene.GetCamera(entity);
@@ -342,11 +370,26 @@ SceneIOResult DeserializeSceneFromString(const std::string& jsonText, Scene& out
         }
 
         outScene.Clear();
+        std::vector<std::pair<std::string, std::string>> parentLinks;
         for (const json& entityJson : root["entities"]) {
             if (!EntityFromJson(entityJson, outScene, result.Error)) {
                 outScene.Clear();
                 return result;
             }
+            if (entityJson.contains("parent") && entityJson["parent"].is_string()) {
+                const std::string childName = entityJson["name"].get<std::string>();
+                parentLinks.emplace_back(childName, entityJson["parent"].get<std::string>());
+            }
+        }
+        for (const auto& link : parentLinks) {
+            const Entity child = outScene.FindEntityByName(link.first);
+            const Entity parent = outScene.FindEntityByName(link.second);
+            if (!child.IsValid() || !parent.IsValid()) {
+                result.Error = "unknown parent entity: " + link.second;
+                outScene.Clear();
+                return result;
+            }
+            outScene.SetParent(child, parent);
         }
 
         result.Ok = true;
@@ -425,6 +468,7 @@ bool ScenesEquivalent(const Scene& a, const Scene& b, float epsilon) {
         const EntitySnapshot& sa = snapsA[i];
         const EntitySnapshot& sb = snapsB[i];
         if (sa.Name != sb.Name) return false;
+        if (sa.ParentName != sb.ParentName) return false;
         if (!Vec3Near(sa.Transform.Position, sb.Transform.Position, epsilon)) return false;
         if (!Vec3Near(sa.Transform.Scale, sb.Transform.Scale, epsilon)) return false;
         if (!QuatNear(sa.Transform.Rotation, sb.Transform.Rotation, epsilon)) return false;
@@ -432,7 +476,10 @@ bool ScenesEquivalent(const Scene& a, const Scene& b, float epsilon) {
         if (static_cast<bool>(sa.Mesh) != static_cast<bool>(sb.Mesh)) return false;
         if (sa.Mesh && (sa.Mesh->Primitive != sb.Mesh->Primitive ||
                         sa.Mesh->ReceiveShadows != sb.Mesh->ReceiveShadows ||
-                        sa.Mesh->AssetPath != sb.Mesh->AssetPath)) {
+                        sa.Mesh->AssetPath != sb.Mesh->AssetPath ||
+                        sa.Mesh->AlbedoTexturePath != sb.Mesh->AlbedoTexturePath ||
+                        sa.Mesh->UseAlbedoTexture != sb.Mesh->UseAlbedoTexture ||
+                        !Vec3Near(sa.Mesh->AlbedoColor, sb.Mesh->AlbedoColor, epsilon))) {
             return false;
         }
 

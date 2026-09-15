@@ -44,4 +44,17 @@ bool ProjectWorldToViewport(const Mat4& viewProjection,
                             float& outX,
                             float& outY);
 
+struct Ray {
+    Vec3 Origin{0.0f, 0.0f, 0.0f};
+    Vec3 Direction{0.0f, 0.0f, -1.0f};
+};
+
+/// Pixel coords: origin top-left, Y down. Metal clip Z in [0, 1].
+bool ViewportPointToRay(const Camera& camera,
+                        float pixelX,
+                        float pixelY,
+                        float viewportWidth,
+                        float viewportHeight,
+                        Ray& outRay);
+
 } // namespace Nova

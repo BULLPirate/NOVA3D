@@ -64,6 +64,25 @@ TEST(SceneSerialization, RejectsBadVersion) {
     EXPECT_EQ(scene.EntityCount(), 0u);
 }
 
+TEST(SceneSerialization, ParentLinkRoundTrip) {
+    Nova::Scene scene;
+    Nova::Entity root = scene.CreateEntity("Root");
+    Nova::Entity child = scene.CreateEntity("Child");
+    scene.GetTransform(child).Position = {0.0f, 1.0f, 0.0f};
+    scene.SetParent(child, root);
+
+    const std::string json = Nova::SerializeSceneToString(scene);
+    Nova::Scene loaded;
+    const Nova::SceneIOResult io = Nova::DeserializeSceneFromString(json, loaded);
+    ASSERT_TRUE(io.Ok) << io.Error;
+
+    const Nova::Entity loadedChild = loaded.FindEntityByName("Child");
+    const Nova::Entity loadedRoot = loaded.FindEntityByName("Root");
+    EXPECT_TRUE(loadedChild.IsValid());
+    EXPECT_TRUE(loadedRoot.IsValid());
+    EXPECT_EQ(loaded.GetParent(loadedChild).Id, loadedRoot.Id);
+}
+
 TEST(SceneSerialization, CloneSceneMatchesSource) {
     const Nova::Scene original = Nova::Scene::CreateDemoLevel();
     const Nova::Scene copy = Nova::CloneScene(original);

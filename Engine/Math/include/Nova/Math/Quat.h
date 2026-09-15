@@ -35,6 +35,52 @@ struct Quat {
         };
     }
 
+    /// Intrinsic Y-X-Z Euler angles in radians (pitch=X, yaw=Y, roll=Z).
+    Vec3 ToEulerYXZRadians() const {
+        const Mat4 r = ToMat4();
+        const float m02 = r.m[0][2];
+        const float m22 = r.m[2][2];
+        const float m12 = r.m[1][2];
+        const float m10 = r.m[1][0];
+        const float m11 = r.m[1][1];
+
+        const float clampedM12 = m12 < -1.0f ? -1.0f : (m12 > 1.0f ? 1.0f : m12);
+        float pitch = std::asin(clampedM12);
+        float yaw = 0.0f;
+        float roll = 0.0f;
+        if (std::abs(m12) < 0.99999f) {
+            yaw = std::atan2(-m02, m22);
+            roll = std::atan2(-m10, m11);
+        } else {
+            yaw = std::atan2(r.m[2][0], r.m[0][0]);
+            roll = 0.0f;
+        }
+        return {pitch, yaw, roll};
+    }
+
+    static Quat FromEulerYXZRadians(const Vec3& euler) {
+        return FromEuler(euler.x, euler.y, euler.z);
+    }
+
+    /// Minimal rotation mapping unit `from` onto unit `to` (world space).
+    static Quat ShortestRotation(const Vec3& from, const Vec3& to) {
+        const Vec3 f = from.Normalized();
+        const Vec3 t = to.Normalized();
+        const float d = f.Dot(t);
+        if (d >= 0.9995f) {
+            return Identity();
+        }
+        if (d <= -0.9995f) {
+            Vec3 axis = f.Cross({1.0f, 0.0f, 0.0f});
+            if (axis.LengthSq() < 1e-4f) {
+                axis = f.Cross({0.0f, 1.0f, 0.0f});
+            }
+            return FromAxisAngle(axis.Normalized(), 3.14159265f);
+        }
+        const Vec3 axis = f.Cross(t);
+        return Quat{axis.x, axis.y, axis.z, 1.0f + d}.Normalized();
+    }
+
     Quat operator*(const Quat& q) const {
         return {
             w*q.x + x*q.w + y*q.z - z*q.y,

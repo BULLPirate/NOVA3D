@@ -154,7 +154,32 @@ TEST(Quat, ToMat4Identity) {
             EXPECT_NEAR(m.m[c][r], I.m[c][r], 0.001f);
 }
 
+TEST(Quat, ShortestRotationMapsDirection) {
+    const Quat q = Quat::ShortestRotation({1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
+    const Vec3 rotated = q.Rotate({1.0f, 0.0f, 0.0f});
+    EXPECT_NEAR(rotated.x, 0.0f, 0.01f);
+    EXPECT_NEAR(rotated.y, 1.0f, 0.01f);
+    EXPECT_NEAR(rotated.z, 0.0f, 0.01f);
+}
+
+TEST(Quat, EulerRoundTrip) {
+    const Quat original =
+        Quat::FromEulerYXZRadians({Radians(15.0f), Radians(-30.0f), Radians(45.0f)});
+    const Vec3 euler = original.ToEulerYXZRadians();
+    const Quat restored = Quat::FromEulerYXZRadians(euler);
+    const float dot = std::abs(original.Dot(restored));
+    EXPECT_NEAR(dot, 1.0f, 0.01f);
+}
+
 // ── Transform ──────────────────────────────────────────────────────────────────
+
+TEST(Mat4, InverseRoundTripTranslate) {
+    const Mat4 t = Mat4::Translate({2.0f, -3.0f, 4.0f});
+    const Vec3 p = t.Inverse().TransformPoint({2.0f, -3.0f, 4.0f});
+    EXPECT_NEAR(p.x, 0.0f, 0.001f);
+    EXPECT_NEAR(p.y, 0.0f, 0.001f);
+    EXPECT_NEAR(p.z, 0.0f, 0.001f);
+}
 
 TEST(Transform, TranslateOnly) {
     Transform t;

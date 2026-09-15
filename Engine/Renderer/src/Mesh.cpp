@@ -154,6 +154,19 @@ TexturedMeshData CreateUnitCubeTexturedMesh() {
     return mesh;
 }
 
+TexturedMeshData CreateUnitPlaneTexturedMesh() {
+    TexturedMeshData mesh;
+    const float h = 0.5f;
+    mesh.Vertices = {
+        {-h, 0.0f, -h, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f},
+        {h, 0.0f, -h, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f},
+        {h, 0.0f, h, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f},
+        {-h, 0.0f, h, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f},
+    };
+    mesh.Indices = {0, 1, 2, 0, 2, 3};
+    return mesh;
+}
+
 bool ValidateUnitCubeMesh(const MeshData& mesh) {
     if (mesh.Vertices.size() != 24 || mesh.Indices.size() != 36) {
         return false;

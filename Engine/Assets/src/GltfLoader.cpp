@@ -157,7 +157,14 @@ AssetLoadResult LoadGltfMesh(const std::filesystem::path& path) {
     for (size_t m = 0; m < data->meshes_count; ++m) {
         const cgltf_mesh& mesh = data->meshes[m];
         for (size_t p = 0; p < mesh.primitives_count; ++p) {
-            if (!AppendPrimitive(mesh.primitives[p], result.Mesh, result.Error)) {
+            const cgltf_primitive& prim = mesh.primitives[p];
+            if (!result.HasMaterialBaseColor && prim.material &&
+                prim.material->has_pbr_metallic_roughness) {
+                const float* c = prim.material->pbr_metallic_roughness.base_color_factor;
+                result.MaterialBaseColor = {c[0], c[1], c[2]};
+                result.HasMaterialBaseColor = true;
+            }
+            if (!AppendPrimitive(prim, result.Mesh, result.Error)) {
                 cgltf_free(data);
                 return result;
             }

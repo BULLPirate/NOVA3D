@@ -133,6 +133,74 @@ struct Mat4 {
         };
     }
 
+    Vec3 TransformPoint(const Vec3& p) const {
+        const Vec4 r = *this * Vec4{p.x, p.y, p.z, 1.0f};
+        if (std::fabs(r.w) > 1e-8f) {
+            return {r.x / r.w, r.y / r.w, r.z / r.w};
+        }
+        return {r.x, r.y, r.z};
+    }
+
+    Vec3 TransformVector(const Vec3& v) const {
+        return {
+            m[0][0]*v.x + m[1][0]*v.y + m[2][0]*v.z,
+            m[0][1]*v.x + m[1][1]*v.y + m[2][1]*v.z,
+            m[0][2]*v.x + m[1][2]*v.y + m[2][2]*v.z
+        };
+    }
+
+    /// Gauss-Jordan inverse. Returns Identity if the matrix is singular.
+    Mat4 Inverse() const {
+        float a[4][8] = {};
+        for (int c = 0; c < 4; ++c) {
+            for (int r = 0; r < 4; ++r) {
+                a[r][c] = m[c][r];
+            }
+            a[c][c + 4] = 1.0f;
+        }
+
+        for (int col = 0; col < 4; ++col) {
+            int pivot = col;
+            float best = std::fabs(a[col][col]);
+            for (int row = col + 1; row < 4; ++row) {
+                const float v = std::fabs(a[row][col]);
+                if (v > best) {
+                    best = v;
+                    pivot = row;
+                }
+            }
+            if (best < 1e-8f) {
+                return Identity();
+            }
+            if (pivot != col) {
+                for (int k = 0; k < 8; ++k) {
+                    const float tmp = a[col][k];
+                    a[col][k] = a[pivot][k];
+                    a[pivot][k] = tmp;
+                }
+            }
+            const float invPivot = 1.0f / a[col][col];
+            for (int k = 0; k < 8; ++k) {
+                a[col][k] *= invPivot;
+            }
+            for (int row = 0; row < 4; ++row) {
+                if (row == col) continue;
+                const float factor = a[row][col];
+                for (int k = 0; k < 8; ++k) {
+                    a[row][k] -= factor * a[col][k];
+                }
+            }
+        }
+
+        Mat4 inv;
+        for (int c = 0; c < 4; ++c) {
+            for (int r = 0; r < 4; ++r) {
+                inv.m[c][r] = a[r][c + 4];
+            }
+        }
+        return inv;
+    }
+
     const float* Data() const { return &m[0][0]; }
 };
 

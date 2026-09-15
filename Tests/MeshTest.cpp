@@ -17,6 +17,13 @@ TEST(Mesh, TexturedCubeTopology) {
     EXPECT_TRUE(Nova::ValidateUnitCubeTexturedMesh(cube));
 }
 
+TEST(Mesh, UnitPlaneTopology) {
+    Nova::TexturedMeshData plane = Nova::CreateUnitPlaneTexturedMesh();
+    EXPECT_EQ(plane.Vertices.size(), 4u);
+    EXPECT_EQ(plane.Indices.size(), 6u);
+    EXPECT_NEAR(plane.Vertices[0].ny, 1.0f, 1e-4f);
+}
+
 TEST(Mesh, TexturedCubeNormalsPerFace) {
     Nova::TexturedMeshData cube = Nova::CreateUnitCubeTexturedMesh();
     bool sawPositiveZ = false;

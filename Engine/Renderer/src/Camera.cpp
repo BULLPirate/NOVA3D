@@ -26,4 +26,30 @@ bool ProjectWorldToViewport(const Mat4& viewProjection,
     return true;
 }
 
+bool ViewportPointToRay(const Camera& camera,
+                        float pixelX,
+                        float pixelY,
+                        float viewportWidth,
+                        float viewportHeight,
+                        Ray& outRay) {
+    if (viewportWidth <= 1e-4f || viewportHeight <= 1e-4f) {
+        return false;
+    }
+
+    const float ndcX = (pixelX / viewportWidth) * 2.0f - 1.0f;
+    const float ndcY = 1.0f - (pixelY / viewportHeight) * 2.0f;
+    const Mat4 invViewProj = camera.GetViewProjectionMatrix().Inverse();
+
+    const Vec3 nearPoint = invViewProj.TransformPoint({ndcX, ndcY, 0.0f});
+    const Vec3 farPoint = invViewProj.TransformPoint({ndcX, ndcY, 1.0f});
+    const Vec3 dir = farPoint - nearPoint;
+    if (dir.LengthSq() < 1e-12f) {
+        return false;
+    }
+
+    outRay.Origin = camera.Position;
+    outRay.Direction = dir.Normalized();
+    return true;
+}
+
 } // namespace Nova

@@ -33,6 +33,8 @@ struct TexturedMeshData {
 
 /// Same cube topology with UVs for texture sampling.
 TexturedMeshData CreateUnitCubeTexturedMesh();
+/// 1x1 quad on XZ (Y up), centered at origin.
+TexturedMeshData CreateUnitPlaneTexturedMesh();
 
 /// Geometry checks (outward-facing triangles, 24 verts / 36 indices).
 bool ValidateUnitCubeMesh(const MeshData& mesh);
