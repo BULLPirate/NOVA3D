@@ -53,6 +53,7 @@ Entity Scene::CreateEntity(const std::string& name) {
     rec.Light.reset();
     rec.Rotator.reset();
     rec.Mover.reset();
+    rec.PointLight.reset();
     rec.Parent = Entity{};
 
     return Entity{PackEntityId(index, rec.Generation)};
@@ -71,6 +72,7 @@ Entity Scene::DuplicateEntity(Entity source) {
     const std::optional<DirectionalLightComponent> light = src->Light;
     const std::optional<RotatorComponent> rotator = src->Rotator;
     const std::optional<MoverComponent> mover = src->Mover;
+    const std::optional<PointLightComponent> point = src->PointLight;
 
     Entity copy = CreateEntity(newName);
     GetTransform(copy) = xform;
@@ -90,6 +92,9 @@ Entity Scene::DuplicateEntity(Entity source) {
     }
     if (mover) {
         AddMover(copy, *mover);
+    }
+    if (point) {
+        AddPointLight(copy, *point);
     }
     SetParent(copy, src->Parent);
     return copy;
@@ -114,6 +119,7 @@ void Scene::DestroyEntity(Entity entity) {
     rec->Light.reset();
     rec->Rotator.reset();
     rec->Mover.reset();
+    rec->PointLight.reset();
     if (rec->Generation < 255) {
         ++rec->Generation;
     }
@@ -319,6 +325,47 @@ void Scene::RemoveMover(Entity entity) {
     }
 }
 
+bool Scene::HasPointLight(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    return rec && rec->PointLight.has_value();
+}
+
+PointLightComponent& Scene::GetPointLight(Entity entity) {
+    EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->PointLight) {
+        throw std::out_of_range("Scene::GetPointLight missing component");
+    }
+    return *rec->PointLight;
+}
+
+const PointLightComponent& Scene::GetPointLight(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->PointLight) {
+        throw std::out_of_range("Scene::GetPointLight missing component");
+    }
+    return *rec->PointLight;
+}
+
+void Scene::AddPointLight(Entity entity, PointLightComponent light) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->PointLight = light;
+    }
+}
+
+void Scene::RemovePointLight(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->PointLight.reset();
+    }
+}
+
+SceneSettings& Scene::Settings() {
+    return m_Settings;
+}
+
+const SceneSettings& Scene::Settings() const {
+    return m_Settings;
+}
+
 Entity Scene::GetParent(Entity entity) const {
     const EntityRecord* rec = GetRecord(entity);
     if (!rec || !rec->Parent.IsValid()) {
@@ -412,6 +459,7 @@ void Scene::ForEachEntity(const std::function<void(Entity)>& fn) const {
 
 void Scene::Clear() {
     m_Entities.clear();
+    m_Settings = {};
 }
 
 Scene Scene::CreateDemoLevel() {

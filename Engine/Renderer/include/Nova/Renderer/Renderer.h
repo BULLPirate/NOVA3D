@@ -13,6 +13,7 @@ struct ImageRGBA;
 using MeshGpuHandle = uint32_t;
 constexpr MeshGpuHandle kDefaultMeshGpuHandle = 0;
 constexpr MeshGpuHandle kBuiltinPlaneMeshGpuHandle = 1;
+constexpr MeshGpuHandle kBuiltinSphereMeshGpuHandle = 2;
 
 using TextureGpuHandle = uint32_t;
 constexpr TextureGpuHandle kDefaultTextureGpuHandle = 0;
@@ -20,6 +21,7 @@ struct Camera;
 struct Mat4;
 struct Material;
 struct DirectionalLight;
+struct PointLight;
 struct ShadowSettings;
 
 /// Abstract GPU renderer. First backend is Metal (macOS).
@@ -53,6 +55,7 @@ public:
 
     virtual void SetMaterial(const Material& material) = 0;
     virtual void SetDirectionalLight(const DirectionalLight& light) = 0;
+    virtual void SetPointLight(const PointLight& light) = 0;
     virtual void SetShadowSettings(const ShadowSettings& settings) = 0;
 
     /// Queue mesh draws for the current frame (flushed in EndFrame).

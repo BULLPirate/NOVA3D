@@ -22,6 +22,7 @@ add_library(NovaAssets STATIC
     src/MeshCache.cpp
     src/PngLoader.cpp
     src/TextureCache.cpp
+    src/AssetRegistry.cpp
 )
 
 target_include_directories(NovaAssets PUBLIC include)

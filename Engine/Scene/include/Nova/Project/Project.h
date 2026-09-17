@@ -26,6 +26,7 @@ struct ProjectDescriptor {
 
     std::filesystem::path ProjectFilePath() const;
     std::filesystem::path ScenesDirectory() const;
+    std::filesystem::path PrefabsDirectory() const;
     std::filesystem::path StartupSceneAbsolute() const;
     std::filesystem::path LastOpenedSceneAbsolute() const;
 };
@@ -40,7 +41,7 @@ ProjectIOResult ResolveProjectRoot(std::filesystem::path pathIn, std::filesystem
 ProjectIOResult LoadProject(const std::filesystem::path& projectRootOrFile, ProjectDescriptor& out);
 ProjectIOResult SaveProject(const ProjectDescriptor& project);
 
-/// Creates `Assets/Scenes` and `.nova` if missing.
+/// Creates `Assets/Scenes`, `Assets/Prefabs` and `.nova` if missing.
 ProjectIOResult EnsureProjectLayout(const std::filesystem::path& projectRoot);
 
 /// Writes a new project file and folder layout; does not create scenes.
@@ -53,6 +54,9 @@ std::filesystem::path MakeProjectRelativePath(const ProjectDescriptor& project,
 
 /// Sorted list of `.scene.json` / `.json` scene files under `Assets/Scenes`.
 std::vector<std::filesystem::path> ListProjectScenes(const ProjectDescriptor& project);
+
+/// Sorted project-relative prefab files under `Assets/Prefabs`.
+std::vector<std::filesystem::path> ListProjectPrefabs(const ProjectDescriptor& project);
 
 /// Sorted project-relative asset paths under `Assets/` (models, textures).
 std::vector<std::filesystem::path> ListProjectAssets(const ProjectDescriptor& project);

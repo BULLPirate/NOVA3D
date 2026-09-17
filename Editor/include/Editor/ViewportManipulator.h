@@ -7,16 +7,12 @@
 
 namespace Nova::Editor {
 
+/// Screen-space inspect: each mouse step rotates around the camera's current
+/// screen axes, not the object's local axes and not world-Y from the first face.
+/// After any other side is toward the camera, the next drag still follows the mouse.
 struct ViewportRotateSession {
     bool Active = false;
-    Quat StartRotation = Quat::Identity();
-    Vec3 GrabStart{0.0f, 0.0f, 1.0f};
-    Vec3 FrozenCameraUp{0.0f, 1.0f, 0.0f};
-    Vec3 FrozenCameraRight{1.0f, 0.0f, 0.0f};
-    Vec3 FrozenTowardCamera{0.0f, 0.0f, 1.0f};
-    float PivotX = 0.0f;
-    float PivotY = 0.0f;
-    float Radius = 160.0f;
+    float ViewportHeight = 400.0f;
 };
 
 void ResetViewportRotateSession(ViewportRotateSession& session);
@@ -24,32 +20,26 @@ void ResetViewportRotateSession(ViewportRotateSession& session);
 Vec3 ManipulatorCameraForward(const Camera& camera);
 Vec3 ManipulatorCameraRight(const Camera& camera);
 Vec3 ManipulatorCameraUp(const Camera& camera);
-Vec3 ManipulatorTowardCamera(const Camera& camera);
 
-/// Shoemake hemisphere around the object. Screen Y is down.
-Vec3 ArcballGrabVector(float mouseX,
-                       float mouseY,
-                       float pivotX,
-                       float pivotY,
-                       float radius,
-                       const Vec3& viewRight,
-                       const Vec3& viewUp,
-                       const Vec3& towardCamera);
+void FilterNearlyCardinalDelta(float& dx, float& dy);
 
-void BeginViewportRotateSession(ViewportRotateSession& session,
-                                const Quat& startRotation,
-                                float mouseX,
-                                float mouseY,
-                                float pivotX,
-                                float pivotY,
-                                float radius,
-                                const Camera& camera);
+Quat RotationFromMouseDelta(const Vec3& yawAxis,
+                            const Vec3& pitchAxis,
+                            float dragPixelsX,
+                            float dragPixelsY,
+                            float viewportHeightPx);
 
-/// World-space delta so the point under the cursor follows the mouse,
-/// independent of which object face currently faces the camera.
+void BeginViewportRotateSession(ViewportRotateSession& session, float viewportHeightPx);
+
 void ApplyViewportRotateDrag(ViewportRotateSession& session,
                              Transform& transform,
-                             float currentMouseX,
-                             float currentMouseY);
+                             float mouseDeltaX,
+                             float mouseDeltaY,
+                             const Camera& camera);
+
+constexpr float kDefaultMoveGrid = 0.25f;
+
+float SnapScalarToGrid(float value, float grid);
+Vec3 SnapPositionToGrid(const Vec3& position, float grid = kDefaultMoveGrid);
 
 } // namespace Nova::Editor

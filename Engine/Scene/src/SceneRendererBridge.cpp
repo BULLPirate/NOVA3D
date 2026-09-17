@@ -37,6 +37,9 @@ void RenderScene(const Scene& scene,
         renderer.SetCamera(camera);
     }
 
+    const Vec3 clear = scene.Settings().ClearColor;
+    renderer.SetClearColor(clear.x, clear.y, clear.z, 1.0f);
+
     scene.ForEachEntity([&](Entity entity) {
         if (!scene.HasDirectionalLight(entity)) return;
         const DirectionalLightComponent& src = scene.GetDirectionalLight(entity);
@@ -46,6 +49,18 @@ void RenderScene(const Scene& scene,
         light.Ambient = src.Ambient;
         renderer.SetDirectionalLight(light);
     });
+
+    PointLight point = DisabledPointLight();
+    scene.ForEachEntity([&](Entity entity) {
+        if (!scene.HasPointLight(entity) || point.Range > 0.0f) return;
+        const PointLightComponent& src = scene.GetPointLight(entity);
+        const Mat4 world = scene.GetWorldMatrix(entity);
+        const Vec4 origin = world * Vec4{0.0f, 0.0f, 0.0f, 1.0f};
+        point.Position = {origin.x, origin.y, origin.z};
+        point.Color = src.Color * src.Intensity;
+        point.Range = src.Range;
+    });
+    renderer.SetPointLight(point);
 
     renderer.ClearMeshDraws();
 
@@ -60,6 +75,8 @@ void RenderScene(const Scene& scene,
             gpuMesh = meshCache.Resolve(renderer, projectRoot, mesh.AssetPath);
         } else if (mesh.Primitive == MeshPrimitive::UnitPlane) {
             gpuMesh = kBuiltinPlaneMeshGpuHandle;
+        } else if (mesh.Primitive == MeshPrimitive::UnitSphere) {
+            gpuMesh = kBuiltinSphereMeshGpuHandle;
         }
 
         TextureGpuHandle gpuTex = kDefaultTextureGpuHandle;

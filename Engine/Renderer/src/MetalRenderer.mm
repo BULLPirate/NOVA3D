@@ -30,6 +30,8 @@ struct FrameUniforms {
     float4 lightColor; // rgb; w = 1 to sample albedo texture
     float4 tint;
     float4 shadowParams; // x = bias, y = strength, z = global enabled, w = material receives
+    float4 pointPos;     // xyz world, w = range (0 = off)
+    float4 pointColor;   // rgb * intensity
 };
 
 struct VertexIn {
@@ -95,8 +97,18 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         }
     }
 
+    float3 pointLit = float3(0.0);
+    if (u.pointPos.w > 0.001) {
+        float3 toL = u.pointPos.xyz - in.worldPos;
+        float dist = length(toL);
+        float3 Lp = toL / max(dist, 1e-5);
+        float nd = saturate(dot(N, Lp));
+        float t = saturate(1.0 - dist / u.pointPos.w);
+        pointLit = u.pointColor.rgb * nd * (t * t);
+    }
+
     const float shade = mix(1.0 - u.shadowParams.y, 1.0, shadow);
-    const float3 lit = base * ambient + base * diffuse * shade;
+    const float3 lit = base * ambient + base * diffuse * shade + base * pointLit;
     return float4(lit, u.tint.a);
 }
 )";
@@ -109,6 +121,8 @@ struct FrameUniforms {
     float lightColor[4];
     float tint[4];
     float shadowParams[4];
+    float pointPos[4];
+    float pointColor[4];
 };
 
 static constexpr uint32_t kShadowMapSize = 2048;
@@ -375,6 +389,11 @@ public:
         UploadFrameUniforms();
     }
 
+    void SetPointLight(const PointLight& light) override {
+        m_PointLight = light;
+        UploadFrameUniforms();
+    }
+
     void SetShadowSettings(const ShadowSettings& settings) override {
         m_ShadowSettings = settings;
         UploadFrameUniforms();
@@ -551,6 +570,15 @@ private:
         m_Uniforms.shadowParams[2] = m_ShadowSettings.Enabled ? 1.0f : 0.0f;
         m_Uniforms.shadowParams[3] = m_Material.ReceiveShadows ? 1.0f : 0.0f;
 
+        m_Uniforms.pointPos[0] = m_PointLight.Position.x;
+        m_Uniforms.pointPos[1] = m_PointLight.Position.y;
+        m_Uniforms.pointPos[2] = m_PointLight.Position.z;
+        m_Uniforms.pointPos[3] = m_PointLight.Range;
+        m_Uniforms.pointColor[0] = m_PointLight.Color.x;
+        m_Uniforms.pointColor[1] = m_PointLight.Color.y;
+        m_Uniforms.pointColor[2] = m_PointLight.Color.z;
+        m_Uniforms.pointColor[3] = 1.0f;
+
         if (m_UniformBuffer) {
             std::memcpy([m_UniformBuffer contents], &m_Uniforms, sizeof(m_Uniforms));
         }
@@ -619,6 +647,7 @@ private:
         m_GpuMeshes.clear();
         CreateGpuMesh(CreateUnitCubeTexturedMesh());
         CreateGpuMesh(CreateUnitPlaneTexturedMesh());
+        CreateGpuMesh(CreateUnitSphereTexturedMesh());
 
         if (!CreateDefaultAlbedoTexture()) {
             return false;
@@ -778,6 +807,7 @@ private:
     FrameUniforms               m_Uniforms{};
     Material                    m_Material{};
     DirectionalLight            m_Light = DefaultDirectionalLight();
+    PointLight                  m_PointLight{};
     ShadowSettings              m_ShadowSettings{};
     std::vector<MeshDrawItem>   m_MeshDraws;
     MTLRenderPassDescriptor*    m_FramePass = nil;

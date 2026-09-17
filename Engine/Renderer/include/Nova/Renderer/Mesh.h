@@ -35,6 +35,8 @@ struct TexturedMeshData {
 TexturedMeshData CreateUnitCubeTexturedMesh();
 /// 1x1 quad on XZ (Y up), centered at origin.
 TexturedMeshData CreateUnitPlaneTexturedMesh();
+/// UV sphere of diameter 1, centered at origin.
+TexturedMeshData CreateUnitSphereTexturedMesh();
 
 /// Geometry checks (outward-facing triangles, 24 verts / 36 indices).
 bool ValidateUnitCubeMesh(const MeshData& mesh);

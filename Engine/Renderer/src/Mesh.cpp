@@ -167,6 +167,54 @@ TexturedMeshData CreateUnitPlaneTexturedMesh() {
     return mesh;
 }
 
+TexturedMeshData CreateUnitSphereTexturedMesh() {
+    TexturedMeshData mesh;
+    constexpr int kSlices = 24;
+    constexpr int kStacks = 16;
+    constexpr float kRadius = 0.5f;
+    constexpr float kPi = 3.14159265f;
+
+    for (int stack = 0; stack <= kStacks; ++stack) {
+        const float v = static_cast<float>(stack) / static_cast<float>(kStacks);
+        const float phi = v * kPi;
+        const float y = std::cos(phi);
+        const float ring = std::sin(phi);
+        for (int slice = 0; slice <= kSlices; ++slice) {
+            const float u = static_cast<float>(slice) / static_cast<float>(kSlices);
+            const float theta = u * kPi * 2.0f;
+            const float x = ring * std::cos(theta);
+            const float z = ring * std::sin(theta);
+            TexturedVertex vert{};
+            vert.x = x * kRadius;
+            vert.y = y * kRadius;
+            vert.z = z * kRadius;
+            vert.nx = x;
+            vert.ny = y;
+            vert.nz = z;
+            vert.u = u;
+            vert.v = 1.0f - v;
+            mesh.Vertices.push_back(vert);
+        }
+    }
+
+    const int stride = kSlices + 1;
+    for (int stack = 0; stack < kStacks; ++stack) {
+        for (int slice = 0; slice < kSlices; ++slice) {
+            const uint32_t i0 = static_cast<uint32_t>(stack * stride + slice);
+            const uint32_t i1 = i0 + 1;
+            const uint32_t i2 = i0 + static_cast<uint32_t>(stride);
+            const uint32_t i3 = i2 + 1;
+            mesh.Indices.push_back(i0);
+            mesh.Indices.push_back(i2);
+            mesh.Indices.push_back(i1);
+            mesh.Indices.push_back(i1);
+            mesh.Indices.push_back(i2);
+            mesh.Indices.push_back(i3);
+        }
+    }
+    return mesh;
+}
+
 bool ValidateUnitCubeMesh(const MeshData& mesh) {
     if (mesh.Vertices.size() != 24 || mesh.Indices.size() != 36) {
         return false;

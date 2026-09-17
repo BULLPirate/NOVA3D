@@ -62,6 +62,15 @@ public:
     void AddMover(Entity entity, MoverComponent mover = {});
     void RemoveMover(Entity entity);
 
+    bool HasPointLight(Entity entity) const;
+    PointLightComponent& GetPointLight(Entity entity);
+    const PointLightComponent& GetPointLight(Entity entity) const;
+    void AddPointLight(Entity entity, PointLightComponent light = {});
+    void RemovePointLight(Entity entity);
+
+    SceneSettings& Settings();
+    const SceneSettings& Settings() const;
+
     Entity FindPrimaryCamera() const;
     /// Marks entity as the sole primary camera (must already have CameraComponent).
     void SetPrimaryCamera(Entity entity);
@@ -90,12 +99,14 @@ private:
         std::optional<DirectionalLightComponent> Light;
         std::optional<RotatorComponent> Rotator;
         std::optional<MoverComponent> Mover;
+        std::optional<PointLightComponent> PointLight;
     };
 
     EntityRecord* GetRecord(Entity entity);
     const EntityRecord* GetRecord(Entity entity) const;
 
     std::vector<EntityRecord> m_Entities;
+    SceneSettings m_Settings{};
 };
 
 } // namespace Nova

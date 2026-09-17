@@ -1,5 +1,6 @@
 #include <Nova/Core/Log.h>
 #include <Nova/Core/Input.h>
+#include <Nova/Core/Time.h>
 #include <Nova/Platform/MacApp.h>
 #include <Nova/Platform/Window.h>
 #include <Nova/Project/Project.h>
@@ -11,9 +12,13 @@
 #include <Nova/Scene/SceneRendererBridge.h>
 #include <Nova/Scene/ScenePicking.h>
 #include <Nova/Scene/SceneRuntime.h>
+#include <Nova/Plugins/BuiltinPlugins.h>
+#include <Nova/Plugins/PluginRegistry.h>
+#include <Nova/Plugins/ServiceHub.h>
 
 #include <Editor/ViewportManipulator.h>
 #include <Editor/EditorHistory.h>
+#include <Editor/EditorLogSink.h>
 
 #include "FileDialog.h"
 #include "GameLauncher.h"
@@ -173,6 +178,9 @@ void FocusOrbitOn(const Nova::Scene& scene, Nova::Entity entity, OrbitCamera& or
 const std::vector<Nova::Editor::FileFilter> kSceneFileFilters = {
     {"NOVA Scene", {"json"}},
 };
+const std::vector<Nova::Editor::FileFilter> kPrefabFileFilters = {
+    {"NOVA Prefab", {"json"}},
+};
 
 enum class ViewportTool { Move, Rotate, Scale };
 
@@ -326,6 +334,7 @@ void ImGuiOverlay(void* commandBuffer, void* renderEncoder, void*) {
 
 int main() {
     Nova::Log::Init();
+    Nova::Editor::AttachEditorLogSink();
     NOVA_LOG_INFO("NOVA3D Editor");
     Nova::EnsureMacOSApplicationReady();
 
@@ -385,6 +394,7 @@ int main() {
     MoveAxis moveAxis = MoveAxis::Free;
     char renameBuffer[128] = {};
     bool showAssetsPanel = true;
+    bool showConsolePanel = true;
     Nova::Editor::ViewportRotateSession rotateSession;
     ViewportScaleSession scaleSession;
     bool moveHistoryPushed = false;
@@ -393,14 +403,16 @@ int main() {
     bool projectAssetsStale = true;
     bool isPlaying = false;
     Nova::Scene playScene;
-    Uint64 playStartTicks = 0;
-    Uint64 playLastTickMs = 0;
+    Nova::Clock clock;
+    Nova::PluginRegistry plugins;
+    Nova::ServiceHub services;
+    Nova::RegisterBuiltinPlugins(plugins, services, project.Root / ".nova" / "storage");
+    NOVA_LOG_INFO("Plugins loaded: {}", plugins.Count());
     Nova::MeshAssetCache meshCache;
     Nova::TextureAssetCache textureCache;
     auto startPlay = [&]() {
         playScene = Nova::CloneScene(scene);
-        playStartTicks = SDL_GetTicks();
-        playLastTickMs = playStartTicks;
+        clock.Reset();
         isPlaying = true;
     };
     auto stopPlay = [&]() { isPlaying = false; };
@@ -423,6 +435,7 @@ int main() {
         window.PollEvents(input, [](const SDL_Event& event) {
             ImGui_ImplSDL3_ProcessEvent(&event);
         });
+        clock.Tick();
 
         if (input.IsKeyPressed(Nova::KeyCode::Escape)) {
             if (isPlaying) {
@@ -657,6 +670,60 @@ int main() {
                         InitOrbitFromScene(scene, orbit);
                     }
                 }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Save Prefab...", nullptr,
+                                    false, selected.IsValid() && scene.IsAlive(selected))) {
+                    const std::filesystem::path defaultPath =
+                        project.PrefabsDirectory() /
+                        (scene.GetName(selected) + ".prefab.json");
+                    std::error_code ec;
+                    std::filesystem::create_directories(project.PrefabsDirectory(), ec);
+                    if (auto file = Nova::Editor::ShowSaveFileDialog("Save Prefab", defaultPath,
+                                                                     kPrefabFileFilters)) {
+                        history.Push(scene);
+                        const Nova::SceneIOResult io =
+                            Nova::SavePrefabToFile(scene, selected, *file);
+                        if (!io.Ok) {
+                            NOVA_LOG_ERROR("Save prefab failed: {}", io.Error);
+                        }
+                    }
+                }
+                if (ImGui::BeginMenu("Prefabs in Project")) {
+                    const auto prefabs = Nova::ListProjectPrefabs(project);
+                    if (prefabs.empty()) {
+                        ImGui::MenuItem("(none)", nullptr, false, false);
+                    }
+                    for (const std::filesystem::path& rel : prefabs) {
+                        if (ImGui::MenuItem(rel.filename().string().c_str())) {
+                            history.Push(scene);
+                            Nova::Entity spawned{};
+                            const Nova::SceneIOResult io =
+                                Nova::InstantiatePrefabFromFile(project.Root / rel, scene, spawned);
+                            if (io.Ok) {
+                                selected = spawned;
+                                sceneDirty = true;
+                            } else {
+                                NOVA_LOG_ERROR("Instantiate prefab failed: {}", io.Error);
+                            }
+                        }
+                    }
+                    ImGui::EndMenu();
+                }
+                if (ImGui::MenuItem("Instantiate Prefab...")) {
+                    if (auto file = Nova::Editor::ShowOpenFileDialog("Instantiate Prefab",
+                                                                     kPrefabFileFilters)) {
+                        history.Push(scene);
+                        Nova::Entity spawned{};
+                        const Nova::SceneIOResult io =
+                            Nova::InstantiatePrefabFromFile(*file, scene, spawned);
+                        if (io.Ok) {
+                            selected = spawned;
+                            sceneDirty = true;
+                        } else {
+                            NOVA_LOG_ERROR("Instantiate prefab failed: {}", io.Error);
+                        }
+                    }
+                }
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Play")) {
@@ -677,6 +744,7 @@ int main() {
             }
             if (ImGui::BeginMenu("View")) {
                 ImGui::MenuItem("Assets", nullptr, &showAssetsPanel);
+                ImGui::MenuItem("Console", nullptr, &showConsolePanel);
                 ImGui::EndMenu();
             }
             ImGui::Separator();
@@ -742,10 +810,7 @@ int main() {
             window.GetFramebufferSize(fbW, fbH);
             const float aspect = fbH > 0 ? static_cast<float>(fbW) / static_cast<float>(fbH)
                                          : 16.0f / 9.0f;
-            const Uint64 nowMs = SDL_GetTicks();
-            const float dt = static_cast<float>(nowMs - playLastTickMs) * 0.001f;
-            playLastTickMs = nowMs;
-            Nova::TickScene(playScene, dt);
+            Nova::TickScene(playScene, clock.DeltaSeconds());
             Nova::RenderScene(activeScene, *renderer, aspect, project.Root, meshCache, textureCache);
             ImGui::Render();
             renderer->BeginDrawing();
@@ -787,6 +852,16 @@ int main() {
                 sceneDirty = true;
             }
             ImGui::SameLine();
+            if (ImGui::Button("Sphere")) {
+                history.Push(scene);
+                Nova::Entity sphere = scene.CreateEntity(UniqueEntityName(scene, "Sphere").c_str());
+                Nova::MeshRendererComponent mesh;
+                mesh.Primitive = Nova::MeshPrimitive::UnitSphere;
+                scene.AddMeshRenderer(sphere, mesh);
+                selected = sphere;
+                sceneDirty = true;
+            }
+            ImGui::SameLine();
             if (ImGui::Button("Sun")) {
                 history.Push(scene);
                 Nova::Entity sun = scene.CreateEntity(UniqueEntityName(scene, "Sun").c_str());
@@ -810,6 +885,15 @@ int main() {
                     scene.SetPrimaryCamera(cam);
                 }
                 selected = cam;
+                sceneDirty = true;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Point")) {
+                history.Push(scene);
+                Nova::Entity lamp = scene.CreateEntity(UniqueEntityName(scene, "Point Light").c_str());
+                scene.AddPointLight(lamp);
+                scene.GetTransform(lamp).Position = {0.8f, 1.2f, 0.6f};
+                selected = lamp;
                 sceneDirty = true;
             }
             if (ImGui::Button("Dup") && selected.IsValid() && scene.IsAlive(selected)) {
@@ -838,6 +922,9 @@ int main() {
                 if (scene.HasDirectionalLight(entity)) {
                     label += " [Light]";
                 }
+                if (scene.HasPointLight(entity)) {
+                    label += " [Point]";
+                }
                 if (scene.HasMeshRenderer(entity)) {
                     label += " [Mesh]";
                 }
@@ -855,6 +942,11 @@ int main() {
         ImGui::SetNextWindowSize(ImVec2(kSidePanelWidth, workSize.y));
         ImGui::Begin("Inspector", nullptr,
                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+            ImGui::TextUnformatted("Scene Environment");
+            if (ImGui::ColorEdit3("Clear Color", &scene.Settings().ClearColor.x)) {
+                sceneDirty = true;
+            }
+            ImGui::Separator();
             if (selected.IsValid() && scene.IsAlive(selected)) {
                 const std::string& currentName = scene.GetName(selected);
                 if (renameBuffer[0] == '\0' ||
@@ -924,8 +1016,8 @@ int main() {
                         sceneDirty = true;
                     }
                     int primIndex = static_cast<int>(mesh.Primitive);
-                    const char* primLabels[] = {"UnitCube", "UnitPlane"};
-                    if (ImGui::Combo("Primitive", &primIndex, primLabels, 2)) {
+                    const char* primLabels[] = {"UnitCube", "UnitPlane", "UnitSphere"};
+                    if (ImGui::Combo("Primitive", &primIndex, primLabels, 3)) {
                         mesh.Primitive = static_cast<Nova::MeshPrimitive>(primIndex);
                         sceneDirty = true;
                     }
@@ -1022,6 +1114,27 @@ int main() {
                         sceneDirty = true;
                     }
                 }
+                if (scene.HasPointLight(selected)) {
+                    Nova::PointLightComponent& lamp = scene.GetPointLight(selected);
+                    ImGui::TextUnformatted("Point Light");
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Remove##point")) {
+                        scene.RemovePointLight(selected);
+                        sceneDirty = true;
+                    }
+                    if (ImGui::ColorEdit3("Point Color", &lamp.Color.x)) {
+                        sceneDirty = true;
+                    }
+                    if (ImGui::DragFloat("Intensity", &lamp.Intensity, 0.05f, 0.0f, 20.0f)) {
+                        sceneDirty = true;
+                    }
+                    if (ImGui::DragFloat("Range", &lamp.Range, 0.05f, 0.1f, 40.0f)) {
+                        sceneDirty = true;
+                    }
+                } else if (ImGui::Button("Add Point Light")) {
+                    scene.AddPointLight(selected);
+                    sceneDirty = true;
+                }
             } else {
                 ImGui::TextUnformatted("Select an entity in Hierarchy.");
             }
@@ -1058,6 +1171,27 @@ int main() {
             ImGui::End();
         }
 
+        if (showConsolePanel) {
+            ImGui::SetNextWindowSize(ImVec2(520.0f, 180.0f), ImGuiCond_FirstUseEver);
+            if (ImGui::Begin("Console", &showConsolePanel)) {
+                if (ImGui::Button("Clear")) {
+                    Nova::Editor::ClearEditorLog();
+                }
+                ImGui::Separator();
+                ImGui::BeginChild("##log", ImVec2(0.0f, 0.0f), ImGuiChildFlags_None,
+                                  ImGuiWindowFlags_HorizontalScrollbar);
+                const std::vector<std::string> lines = Nova::Editor::CopyEditorLogLines();
+                for (const std::string& line : lines) {
+                    ImGui::TextUnformatted(line.c_str());
+                }
+                if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 8.0f) {
+                    ImGui::SetScrollHereY(1.0f);
+                }
+                ImGui::EndChild();
+            }
+            ImGui::End();
+        }
+
         const float centerX = workPos.x + kSidePanelWidth;
         const float centerW = workSize.x - kSidePanelWidth * 2.0f;
         ImGui::SetNextWindowPos(ImVec2(centerX, workPos.y));
@@ -1085,9 +1219,11 @@ int main() {
                 if (ImGui::RadioButton("Y", moveAxis == MoveAxis::Y)) moveAxis = MoveAxis::Y;
                 ImGui::SameLine();
                 if (ImGui::RadioButton("Z", moveAxis == MoveAxis::Z)) moveAxis = MoveAxis::Z;
+                ImGui::SameLine();
+                ImGui::TextUnformatted("Shift = snap 0.25");
             }
             ImGui::TextUnformatted(
-                "LMB pick/drag: face under cursor follows mouse | RMB orbit | S scale | Cmd+Z undo | F focus");
+                "LMB rotate: screen tumble (any face, any click) | RMB camera | S scale | Cmd+Z");
             const std::string relScene =
                 Nova::MakeProjectRelativePath(project, scenePath).generic_string();
             ImGui::Text("Project: %s", project.Root.filename().string().c_str());
@@ -1156,26 +1292,15 @@ int main() {
                 hasCamInPanel && frameViewport.CanvasActive) {
                 Nova::Transform& xform = scene.GetTransform(selected);
                 if (viewportTool == ViewportTool::Rotate) {
-                    if (ImGui::IsItemActivated()) {
+                    if (!rotateSession.Active && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
                         history.Push(scene);
-                        const Nova::Vec3 worldPos =
-                            WorldPositionFromMatrix(scene.GetWorldMatrix(selected));
-                        float pivotX = frameViewport.CanvasSize.x * 0.5f;
-                        float pivotY = frameViewport.CanvasSize.y * 0.5f;
-                        Nova::ProjectWorldToViewport(viewportCameraInPanel.GetViewProjectionMatrix(),
-                                                     worldPos, frameViewport.CanvasSize.x,
-                                                     frameViewport.CanvasSize.y, pivotX, pivotY);
-                        const float radius = std::max(
-                            90.0f, 0.42f * std::min(frameViewport.CanvasSize.x,
-                                                    frameViewport.CanvasSize.y));
                         Nova::Editor::BeginViewportRotateSession(
-                            rotateSession, xform.Rotation, mouseLocalX, mouseLocalY, pivotX, pivotY,
-                            radius, viewportCameraInPanel);
-                    }
-                    if (rotateSession.Active) {
+                            rotateSession, frameViewport.CanvasSize.y);
+                    } else if (rotateSession.Active) {
                         const Nova::Quat before = xform.Rotation;
-                        Nova::Editor::ApplyViewportRotateDrag(rotateSession, xform, mouseLocalX,
-                                                              mouseLocalY);
+                        Nova::Editor::ApplyViewportRotateDrag(
+                            rotateSession, xform, ImGui::GetIO().MouseDelta.x,
+                            ImGui::GetIO().MouseDelta.y, viewportCameraInPanel);
                         if (before.Dot(xform.Rotation) < 0.99999f) {
                             sceneDirty = true;
                         }
@@ -1286,6 +1411,9 @@ int main() {
                             }
                             break;
                         }
+                        if (ImGui::GetIO().KeyShift) {
+                            xform.Position = Nova::Editor::SnapPositionToGrid(xform.Position);
+                        }
                         sceneDirty = true;
                     }
             }
@@ -1336,6 +1464,7 @@ int main() {
     ImGui::DestroyContext();
 
     renderer->Shutdown();
+    Nova::Editor::DetachEditorLogSink();
     Nova::Log::Shutdown();
     return 0;
 }

@@ -7,6 +7,7 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(NovaTests
     LogTest.cpp
+    CoreFoundationTest.cpp
     MathTest.cpp
     InputTest.cpp
     RendererTest.cpp
@@ -24,6 +25,9 @@ add_executable(NovaTests
     ViewportManipulatorTest.cpp
     ScenePickingTest.cpp
     EditorHistoryTest.cpp
+    PrefabTest.cpp
+    PluginTest.cpp
+    AssetRegistryTest.cpp
 )
 
 target_compile_definitions(NovaTests PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
@@ -40,6 +44,7 @@ target_link_libraries(NovaTests PRIVATE
     NovaRenderer
     NovaScene
     NovaAssets
+    NovaPlugins
     GTest::gtest_main
 )
 

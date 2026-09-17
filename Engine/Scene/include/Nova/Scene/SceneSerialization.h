@@ -9,6 +9,8 @@ namespace Nova {
 
 constexpr int kSceneFileVersion = 1;
 constexpr const char* kSceneFileFormat = "nova.scene";
+constexpr int kPrefabFileVersion = 1;
+constexpr const char* kPrefabFileFormat = "nova.prefab";
 
 struct SceneIOResult {
     bool Ok = false;
@@ -27,5 +29,11 @@ bool ScenesEquivalent(const Scene& a, const Scene& b, float epsilon = 1e-4f);
 
 /// Deep copy via JSON round-trip (used for Play Mode).
 Scene CloneScene(const Scene& source);
+
+/// Entity plus descendants. Parent links that leave the subtree are omitted.
+std::string SerializePrefabToString(const Scene& scene, Entity root);
+SceneIOResult SavePrefabToFile(const Scene& scene, Entity root, const std::filesystem::path& path);
+SceneIOResult InstantiatePrefabFromString(const std::string& json, Scene& dest, Entity& outRoot);
+SceneIOResult InstantiatePrefabFromFile(const std::filesystem::path& path, Scene& dest, Entity& outRoot);
 
 } // namespace Nova

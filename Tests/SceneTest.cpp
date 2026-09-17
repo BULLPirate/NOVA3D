@@ -54,6 +54,25 @@ TEST(Scene, ClearRemovesEntities) {
     EXPECT_EQ(scene.EntityCount(), 0u);
 }
 
+TEST(Scene, DuplicateEntityCopiesPointLight) {
+    Nova::Scene scene;
+    Nova::Entity lamp = scene.CreateEntity("Lamp");
+    Nova::PointLightComponent light;
+    light.Range = 3.0f;
+    scene.AddPointLight(lamp, light);
+
+    Nova::Entity copy = scene.DuplicateEntity(lamp);
+    EXPECT_TRUE(scene.HasPointLight(copy));
+    EXPECT_FLOAT_EQ(scene.GetPointLight(copy).Range, 3.0f);
+}
+
+TEST(Scene, ClearResetsEnvironment) {
+    Nova::Scene scene;
+    scene.Settings().ClearColor = {1.0f, 0.0f, 0.0f};
+    scene.Clear();
+    EXPECT_NEAR(scene.Settings().ClearColor.x, 0.10f, 1e-4f);
+}
+
 TEST(Scene, DuplicateEntityCopiesComponents) {
     Nova::Scene scene;
     Nova::Entity cube = scene.CreateEntity("Cube");

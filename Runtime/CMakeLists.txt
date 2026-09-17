@@ -9,7 +9,7 @@ set_target_properties(Nova3D PROPERTIES
 
 target_compile_definitions(Nova3D PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
 
-target_link_libraries(Nova3D PRIVATE NovaCore NovaPlatform NovaMath NovaRenderer NovaScene)
+target_link_libraries(Nova3D PRIVATE NovaCore NovaPlatform NovaMath NovaRenderer NovaScene NovaPlugins)
 
 add_custom_command(TARGET Nova3D POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory

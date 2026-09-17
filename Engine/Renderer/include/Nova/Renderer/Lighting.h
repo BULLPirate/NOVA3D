@@ -24,10 +24,20 @@ struct ShadowSettings {
     bool  Enabled         = true;
 };
 
+struct PointLight {
+    Vec3 Position{0.0f, 0.0f, 0.0f};
+    Vec3 Color{1.0f, 0.85f, 0.55f};
+    float Range = 0.0f; // 0 = disabled
+};
+
 inline DirectionalLight DefaultDirectionalLight() {
     DirectionalLight light;
     light.Direction = light.Direction.Normalized();
     return light;
+}
+
+inline PointLight DisabledPointLight() {
+    return {};
 }
 
 /// View-projection from the light toward scene focus (no model matrix).

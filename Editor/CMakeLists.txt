@@ -32,6 +32,7 @@ target_link_libraries(NovaImGui PUBLIC SDL3::SDL3)
 add_executable(NovaEditor MACOSX_BUNDLE
     src/main.mm
     src/ViewportManipulator.cpp
+    src/EditorLogSink.cpp
     src/FileDialog.mm
     src/GameLauncher.mm
 )
@@ -60,6 +61,7 @@ target_link_libraries(NovaEditor PRIVATE
     NovaMath
     NovaRenderer
     NovaScene
+    NovaPlugins
     NovaImGui
     "-framework Metal"
     "-framework QuartzCore"

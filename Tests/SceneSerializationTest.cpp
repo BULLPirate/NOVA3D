@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <Nova/Scene/Scene.h>
 #include <Nova/Scene/SceneSerialization.h>
+#include <Nova/Core/Guid.h>
 
 #include <filesystem>
 #include <fstream>
@@ -83,6 +84,22 @@ TEST(SceneSerialization, ParentLinkRoundTrip) {
     EXPECT_EQ(loaded.GetParent(loadedChild).Id, loadedRoot.Id);
 }
 
+TEST(SceneSerialization, EnvironmentAndPointLightRoundTrip) {
+    Nova::Scene scene = Nova::Scene::CreateEmptyLevel();
+    scene.Settings().ClearColor = {0.2f, 0.3f, 0.4f};
+    Nova::Entity lamp = scene.CreateEntity("Lamp");
+    Nova::PointLightComponent light;
+    light.Color = {0.1f, 0.2f, 0.3f};
+    light.Intensity = 3.5f;
+    light.Range = 8.0f;
+    scene.AddPointLight(lamp, light);
+
+    Nova::Scene loaded;
+    ASSERT_TRUE(Nova::DeserializeSceneFromString(Nova::SerializeSceneToString(scene), loaded).Ok);
+    EXPECT_TRUE(Nova::ScenesEquivalent(scene, loaded));
+    EXPECT_NEAR(loaded.Settings().ClearColor.z, 0.4f, 1e-4f);
+}
+
 TEST(SceneSerialization, CloneSceneMatchesSource) {
     const Nova::Scene original = Nova::Scene::CreateDemoLevel();
     const Nova::Scene copy = Nova::CloneScene(original);
@@ -103,4 +120,24 @@ TEST(SceneSerialization, RejectsUnknownPrimitive) {
     const Nova::SceneIOResult io = Nova::DeserializeSceneFromString(json, scene);
     EXPECT_FALSE(io.Ok);
     EXPECT_EQ(scene.EntityCount(), 0u);
+}
+
+TEST(SceneSerialization, MeshAssetIdRoundTrip) {
+    Nova::Scene scene = Nova::Scene::CreateEmptyLevel();
+    Nova::Entity cube = scene.CreateEntity("GuidedCube");
+    Nova::MeshRendererComponent mesh;
+    mesh.AssetPath = "Assets/Models/hero.gltf";
+    mesh.MeshAssetId = Nova::Guid::Generate();
+    mesh.AlbedoTexturePath = "Assets/Textures/brick.png";
+    mesh.AlbedoTextureId = Nova::Guid::Generate();
+    scene.AddMeshRenderer(cube, mesh);
+
+    Nova::Scene loaded;
+    ASSERT_TRUE(Nova::DeserializeSceneFromString(Nova::SerializeSceneToString(scene), loaded).Ok);
+    ASSERT_TRUE(loaded.HasMeshRenderer(loaded.FindEntityByName("GuidedCube")));
+    const Nova::MeshRendererComponent& loadedMesh =
+        loaded.GetMeshRenderer(loaded.FindEntityByName("GuidedCube"));
+    EXPECT_EQ(loadedMesh.MeshAssetId, mesh.MeshAssetId);
+    EXPECT_EQ(loadedMesh.AlbedoTextureId, mesh.AlbedoTextureId);
+    EXPECT_TRUE(Nova::ScenesEquivalent(scene, loaded));
 }

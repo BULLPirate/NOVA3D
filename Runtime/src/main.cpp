@@ -1,17 +1,19 @@
 #include <Nova/Core/Log.h>
 #include <Nova/Core/Input.h>
+#include <Nova/Core/Time.h>
 #include <Nova/Platform/Window.h>
 #include <Nova/Scene/Scene.h>
 #include <Nova/Project/Project.h>
 #include <Nova/Scene/SceneSerialization.h>
 #include <Nova/Renderer/Renderer.h>
+#include <Nova/Plugins/BuiltinPlugins.h>
+#include <Nova/Plugins/PluginRegistry.h>
+#include <Nova/Plugins/ServiceHub.h>
 
 #include <Nova/Assets/MeshCache.h>
 #include <Nova/Assets/TextureCache.h>
 #include <Nova/Scene/SceneRendererBridge.h>
 #include <Nova/Scene/SceneRuntime.h>
-
-#include <SDL3/SDL.h>
 
 #include <cstring>
 #include <filesystem>
@@ -100,11 +102,20 @@ int main(int argc, char** argv) {
 
         Nova::MeshAssetCache meshCache;
         Nova::TextureAssetCache textureCache;
-        Uint64 lastTicks = SDL_GetTicks();
+        Nova::Clock clock;
+        Nova::PluginRegistry plugins;
+        Nova::ServiceHub services;
+        Nova::RegisterBuiltinPlugins(plugins, services, projectRoot / ".nova" / "storage");
+        NOVA_LOG_INFO("Plugins loaded: {}", plugins.Count());
+        if (services.AI) {
+            NOVA_LOG_INFO("AI provider: {} available={}", services.AI->Id(),
+                          services.AI->IsAvailable());
+        }
 
         while (!window.ShouldClose()) {
             input.BeginFrame();
             window.PollEvents(input);
+            clock.Tick();
 
             if (input.IsKeyPressed(Nova::KeyCode::Escape)) {
                 break;
@@ -115,10 +126,7 @@ int main(int argc, char** argv) {
             const float aspect = fbH > 0 ? static_cast<float>(fbW) / static_cast<float>(fbH)
                                          : 16.0f / 9.0f;
 
-            const Uint64 now = SDL_GetTicks();
-            const float dt = static_cast<float>(now - lastTicks) * 0.001f;
-            lastTicks = now;
-            Nova::TickScene(scene, dt);
+            Nova::TickScene(scene, clock.DeltaSeconds());
             Nova::RenderScene(scene, *renderer, aspect, projectRoot, meshCache, textureCache);
 
             renderer->BeginFrame();

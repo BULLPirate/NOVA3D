@@ -38,6 +38,9 @@ TEST(Project, InitializeAndLoadRoundTrip) {
     ASSERT_TRUE(Nova::LoadProject(root, again).Ok);
     EXPECT_EQ(again.LastOpenedScene.generic_string(), "Assets/Scenes/custom.scene.json");
 
+    EXPECT_TRUE(std::filesystem::is_directory(root / "Assets" / "Prefabs"));
+    EXPECT_TRUE(std::filesystem::is_directory(root / "Assets" / "Models"));
+
     RemoveTree(root);
 }
 

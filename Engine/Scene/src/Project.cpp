@@ -1,19 +1,15 @@
 #include <Nova/Project/Project.h>
+#include <Nova/Core/FileSystem.h>
 
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
-#include <fstream>
 
 namespace Nova {
 
 namespace {
 
 using json = nlohmann::json;
-
-std::string PathToUtf8(const std::filesystem::path& p) {
-    return p.generic_string();
-}
 
 } // namespace
 
@@ -27,6 +23,10 @@ std::filesystem::path ProjectDescriptor::ProjectFilePath() const {
 
 std::filesystem::path ProjectDescriptor::ScenesDirectory() const {
     return Root / "Assets" / "Scenes";
+}
+
+std::filesystem::path ProjectDescriptor::PrefabsDirectory() const {
+    return Root / "Assets" / "Prefabs";
 }
 
 std::filesystem::path ProjectDescriptor::StartupSceneAbsolute() const {
@@ -80,15 +80,15 @@ ProjectIOResult LoadProject(const std::filesystem::path& projectRootOrFile,
     }
 
     const std::filesystem::path jsonPath = ProjectJsonPath(root);
-    std::ifstream in(jsonPath);
-    if (!in) {
-        result.Error = "cannot open " + PathToUtf8(jsonPath);
+    const FileIOResult read = ReadTextFile(jsonPath);
+    if (!read.Ok) {
+        result.Error = read.Error;
         return result;
     }
 
     json doc;
     try {
-        in >> doc;
+        doc = json::parse(read.Text);
     } catch (const json::exception& ex) {
         result.Error = ex.what();
         return result;
@@ -132,12 +132,11 @@ ProjectIOResult SaveProject(const ProjectDescriptor& project) {
     };
 
     const std::filesystem::path jsonPath = ProjectJsonPath(project.Root);
-    std::ofstream out(jsonPath);
-    if (!out) {
-        result.Error = "cannot write " + PathToUtf8(jsonPath);
+    const FileIOResult write = WriteTextFile(jsonPath, doc.dump(2));
+    if (!write.Ok) {
+        result.Error = write.Error;
         return result;
     }
-    out << doc.dump(2);
     result.Ok = true;
     return result;
 }
@@ -146,6 +145,9 @@ ProjectIOResult EnsureProjectLayout(const std::filesystem::path& projectRoot) {
     ProjectIOResult result;
     std::error_code ec;
     std::filesystem::create_directories(projectRoot / "Assets" / "Scenes", ec);
+    std::filesystem::create_directories(projectRoot / "Assets" / "Prefabs", ec);
+    std::filesystem::create_directories(projectRoot / "Assets" / "Models", ec);
+    std::filesystem::create_directories(projectRoot / "Assets" / "Textures", ec);
     std::filesystem::create_directories(projectRoot / kProjectFolderName, ec);
     if (ec) {
         result.Error = ec.message();
@@ -212,6 +214,29 @@ std::vector<std::filesystem::path> ListProjectScenes(const ProjectDescriptor& pr
 
     std::sort(scenes.begin(), scenes.end());
     return scenes;
+}
+
+std::vector<std::filesystem::path> ListProjectPrefabs(const ProjectDescriptor& project) {
+    std::vector<std::filesystem::path> prefabs;
+    const std::filesystem::path dir = project.PrefabsDirectory();
+    std::error_code ec;
+    if (!std::filesystem::is_directory(dir, ec)) {
+        return prefabs;
+    }
+
+    for (const std::filesystem::directory_entry& entry :
+         std::filesystem::directory_iterator(dir, ec)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+        const std::filesystem::path file = entry.path();
+        if (file.extension() == ".json") {
+            prefabs.push_back(MakeProjectRelativePath(project, file));
+        }
+    }
+
+    std::sort(prefabs.begin(), prefabs.end());
+    return prefabs;
 }
 
 std::vector<std::filesystem::path> ListProjectAssets(const ProjectDescriptor& project) {
