@@ -1,0 +1,8 @@
+# character [model]
+# enemy [model]
+# item [model]
+# map [model]
+# ground / cube / sphere / plane
+character Assets/Characters/knight_armed.obj
+enemy Assets/Characters/bandit.obj
+ground

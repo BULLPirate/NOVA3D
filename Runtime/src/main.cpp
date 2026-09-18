@@ -1,6 +1,8 @@
 #include <Nova/Core/Log.h>
 #include <Nova/Core/Input.h>
 #include <Nova/Core/Time.h>
+#include <Nova/Core/EngineSettings.h>
+#include <Nova/Audio/AudioEngine.h>
 #include <Nova/Platform/Window.h>
 #include <Nova/Scene/Scene.h>
 #include <Nova/Project/Project.h>
@@ -14,13 +16,15 @@
 #include <Nova/Assets/TextureCache.h>
 #include <Nova/Scene/SceneRendererBridge.h>
 #include <Nova/Scene/SceneRuntime.h>
+#include <Nova/Scene/Gameplay.h>
 
 #include <cstring>
 #include <filesystem>
 
 namespace {
 
-std::filesystem::path ResolveRuntimeScenePath(int argc, char** argv) {
+std::filesystem::path ResolveRuntimeScenePath(int argc, char** argv,
+                                              std::filesystem::path& outProjectRoot) {
     std::filesystem::path sceneArg;
     std::filesystem::path projectArg;
 
@@ -34,10 +38,16 @@ std::filesystem::path ResolveRuntimeScenePath(int argc, char** argv) {
 
     const std::filesystem::path devRoot = NOVA_SOURCE_DIR;
     Nova::ProjectDescriptor project;
+    outProjectRoot = devRoot;
     if (!projectArg.empty()) {
         if (Nova::LoadProject(projectArg, project).Ok) {
+            outProjectRoot = project.Root;
             if (!sceneArg.empty()) {
                 return sceneArg.is_absolute() ? sceneArg : project.Root / sceneArg;
+            }
+            const std::filesystem::path startup = project.StartupSceneAbsolute();
+            if (std::filesystem::exists(startup)) {
+                return startup;
             }
             return project.LastOpenedSceneAbsolute();
         }
@@ -45,6 +55,7 @@ std::filesystem::path ResolveRuntimeScenePath(int argc, char** argv) {
     }
 
     if (Nova::LoadProject(devRoot, project).Ok) {
+        outProjectRoot = project.Root;
         if (!sceneArg.empty()) {
             return sceneArg.is_absolute() ? sceneArg : project.Root / sceneArg;
         }
@@ -81,7 +92,8 @@ int main(int argc, char** argv) {
         }
         renderer->SetClearColor(0.08f, 0.09f, 0.12f, 1.0f);
 
-        const std::filesystem::path scenePath = ResolveRuntimeScenePath(argc, argv);
+        std::filesystem::path projectRoot;
+        const std::filesystem::path scenePath = ResolveRuntimeScenePath(argc, argv, projectRoot);
 
         Nova::Scene scene;
         const Nova::SceneIOResult sceneLoad = Nova::LoadSceneFromFile(scenePath, scene);
@@ -92,11 +104,11 @@ int main(int argc, char** argv) {
         } else {
             NOVA_LOG_INFO("Scene loaded from {}", scenePath.string());
         }
+        Nova::EnsurePlayableCombatLevel(scene);
         NOVA_LOG_INFO("Scene entities: {}", scene.EntityCount());
 
         Nova::ProjectDescriptor project;
-        std::filesystem::path projectRoot = NOVA_SOURCE_DIR;
-        if (Nova::LoadProject(NOVA_SOURCE_DIR, project).Ok) {
+        if (Nova::LoadProject(projectRoot, project).Ok) {
             projectRoot = project.Root;
         }
 
@@ -112,6 +124,16 @@ int main(int argc, char** argv) {
                           services.AI->IsAvailable());
         }
 
+        Nova::EngineSettings engineSettings = Nova::EngineSettings::Defaults();
+        Nova::LoadEngineSettings(projectRoot, engineSettings);
+        Nova::AudioEngine::Get().Init();
+        Nova::AudioEngine::Get().SetEnabled(false);
+        Nova::AudioEngine::Get().SetMasterVolume(0.0f);
+        engineSettings.EnableAudio = false;
+        engineSettings.MasterVolume = 0.0f;
+        bool playJustStarted = true;
+        window.SetCursorCaptured(true);
+
         while (!window.ShouldClose()) {
             input.BeginFrame();
             window.PollEvents(input);
@@ -126,15 +148,20 @@ int main(int argc, char** argv) {
             const float aspect = fbH > 0 ? static_cast<float>(fbW) / static_cast<float>(fbH)
                                          : 16.0f / 9.0f;
 
-            Nova::TickScene(scene, clock.DeltaSeconds());
+            renderer->BeginFrame();
+            Nova::TickScene(scene, clock.DeltaSeconds(), &input, &engineSettings, projectRoot,
+                            playJustStarted);
+            playJustStarted = false;
             Nova::RenderScene(scene, *renderer, aspect, projectRoot, meshCache, textureCache);
 
-            renderer->BeginFrame();
             renderer->BeginDrawing();
             renderer->EndFrame();
         }
 
+        window.SetCursorCaptured(false);
+
         renderer->Shutdown();
+        Nova::AudioEngine::Get().Shutdown();
     }
 
     Nova::Log::Shutdown();

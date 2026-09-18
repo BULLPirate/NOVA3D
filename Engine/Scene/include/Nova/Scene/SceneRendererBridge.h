@@ -17,7 +17,8 @@ void RenderScene(const Scene& scene,
                  float aspect,
                  const std::filesystem::path& projectRoot,
                  MeshAssetCache& meshCache,
-                 TextureAssetCache& textureCache);
+                 TextureAssetCache& textureCache,
+                 float opacityMultiplier = 1.0f);
 
 /// Fills camera from the scene primary camera (after orbit sync). Returns false if none.
 bool BuildSceneCamera(const Scene& scene, float aspect, Camera& outCamera);

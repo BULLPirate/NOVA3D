@@ -40,6 +40,8 @@ TEST(Project, InitializeAndLoadRoundTrip) {
 
     EXPECT_TRUE(std::filesystem::is_directory(root / "Assets" / "Prefabs"));
     EXPECT_TRUE(std::filesystem::is_directory(root / "Assets" / "Models"));
+    EXPECT_TRUE(std::filesystem::is_directory(root / "Assets" / "Audio"));
+    EXPECT_TRUE(std::filesystem::is_directory(root / "Assets" / "Scripts"));
 
     RemoveTree(root);
 }

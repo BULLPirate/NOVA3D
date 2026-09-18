@@ -48,12 +48,17 @@ public:
     /// Show, raise, and activate so the window is not stuck behind the IDE.
     void BringToFront();
 
+    /// Hide cursor and report relative mouse motion (third-person look).
+    void SetCursorCaptured(bool captured);
+    bool IsCursorCaptured() const { return m_CursorCaptured; }
+
 private:
     SDL_Window* m_Window     = nullptr;
     void*       m_MetalView  = nullptr; // SDL_MetalView
     uint32_t    m_Width;
     uint32_t    m_Height;
     bool        m_ShouldClose = false;
+    bool        m_CursorCaptured = false;
 };
 
 } // namespace Nova

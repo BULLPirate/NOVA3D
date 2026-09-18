@@ -111,6 +111,14 @@ void* Window::GetNativeMetalLayer() const {
     return SDL_Metal_GetLayer(m_MetalView);
 }
 
+void Window::SetCursorCaptured(bool captured) {
+    m_CursorCaptured = captured;
+    if (!m_Window) {
+        return;
+    }
+    SDL_SetWindowRelativeMouseMode(m_Window, captured);
+}
+
 void Window::PollEvents(Input& input, const EventHook& hook) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {

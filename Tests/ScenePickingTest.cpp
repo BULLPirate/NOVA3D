@@ -24,7 +24,9 @@ TEST(ScenePicking, RayMissesOffsetCube) {
 }
 
 TEST(ScenePicking, PicksFrontMeshInDemo) {
-    Nova::Scene scene = Nova::Scene::CreateDemoLevel();
+    Nova::Scene scene = Nova::Scene::CreateEmptyLevel();
+    Nova::Entity cube = scene.CreateEntity("Cube");
+    scene.AddMeshRenderer(cube);
     Nova::Camera cam;
     cam.Position = {0.0f, 0.35f, 3.2f};
     cam.Target = {0.0f, 0.0f, 0.0f};

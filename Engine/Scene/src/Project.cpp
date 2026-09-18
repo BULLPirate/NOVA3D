@@ -1,5 +1,7 @@
 #include <Nova/Project/Project.h>
+#include <Nova/Core/EngineSettings.h>
 #include <Nova/Core/FileSystem.h>
+#include <Nova/Scene/Script.h>
 
 #include <nlohmann/json.hpp>
 
@@ -148,6 +150,11 @@ ProjectIOResult EnsureProjectLayout(const std::filesystem::path& projectRoot) {
     std::filesystem::create_directories(projectRoot / "Assets" / "Prefabs", ec);
     std::filesystem::create_directories(projectRoot / "Assets" / "Models", ec);
     std::filesystem::create_directories(projectRoot / "Assets" / "Textures", ec);
+    std::filesystem::create_directories(projectRoot / "Assets" / "Audio", ec);
+    std::filesystem::create_directories(projectRoot / "Assets" / "Environment", ec);
+    std::filesystem::create_directories(projectRoot / "Assets" / "Scripts", ec);
+    std::filesystem::create_directories(projectRoot / "Assets" / "Characters", ec);
+    std::filesystem::create_directories(projectRoot / "Assets" / "Items", ec);
     std::filesystem::create_directories(projectRoot / kProjectFolderName, ec);
     if (ec) {
         result.Error = ec.message();
@@ -168,6 +175,11 @@ ProjectIOResult InitializeNewProject(const std::filesystem::path& projectRoot,
     if (ProjectIOResult layout = EnsureProjectLayout(projectRoot); !layout.Ok) {
         return layout;
     }
+
+    SaveEngineSettings(projectRoot, EngineSettings::Defaults());
+    WriteTextFile(projectRoot / "Assets" / "Scripts" / "player.ns", DefaultPlayerScript());
+    WriteTextFile(projectRoot / "Assets" / "Scripts" / "world.ns", DefaultContentScript());
+    WriteTextFile(projectRoot / "Assets" / "Scripts" / "game.ns", DefaultGameScript());
 
     ProjectDescriptor project;
     project.Root = projectRoot;
@@ -254,7 +266,8 @@ std::vector<std::filesystem::path> ListProjectAssets(const ProjectDescriptor& pr
         }
         const std::filesystem::path file = entry.path();
         const std::string ext = file.extension().string();
-        if (ext == ".png" || ext == ".obj" || ext == ".gltf" || ext == ".glb") {
+        if (ext == ".png" || ext == ".obj" || ext == ".gltf" || ext == ".glb" || ext == ".wav" ||
+            ext == ".ns") {
             assets.push_back(MakeProjectRelativePath(project, file));
         }
     }

@@ -125,6 +125,9 @@ bool MeshPrimitiveFromString(const std::string& s, MeshPrimitive& out) {
 json EntityToJson(const Scene& scene, Entity entity, const std::unordered_set<uint32_t>* subtreeIds) {
     json j;
     j["name"] = scene.GetName(entity);
+    if (scene.GetShowAxes(entity)) {
+        j["showAxes"] = true;
+    }
     j["transform"] = TransformToJson(scene.GetTransform(entity));
     const Entity parent = scene.GetParent(entity);
     if (parent.IsValid()) {
@@ -148,6 +151,7 @@ json EntityToJson(const Scene& scene, Entity entity, const std::unordered_set<ui
             meshJson["assetId"] = mesh.MeshAssetId.ToString();
         }
         meshJson["albedoColor"] = Vec3ToJson(mesh.AlbedoColor);
+        meshJson["opacity"] = mesh.Opacity;
         if (!mesh.AlbedoTexturePath.empty()) {
             meshJson["albedoTexture"] = mesh.AlbedoTexturePath;
         }
@@ -200,6 +204,52 @@ json EntityToJson(const Scene& scene, Entity entity, const std::unordered_set<ui
         };
     }
 
+    if (scene.HasCharacterController(entity)) {
+        const CharacterControllerComponent& character = scene.GetCharacterController(entity);
+        j["characterController"] = {
+            {"moveSpeed", character.MoveSpeed},
+            {"jumpSpeed", character.JumpSpeed},
+            {"gravity", character.Gravity},
+            {"height", character.Height},
+            {"footOffset", character.FootOffset},
+            {"sprint", character.SprintMultiplier},
+            {"crouch", character.CrouchMultiplier},
+            {"team", character.Team},
+            {"health", character.Health},
+            {"maxHealth", character.MaxHealth},
+            {"attackDamage", character.AttackDamage},
+            {"attackRange", character.AttackRange},
+            {"detectRange", character.DetectRange},
+        };
+    }
+    if (scene.HasPlayerController(entity)) {
+        j["playerController"] = {{"enabled", scene.GetPlayerController(entity).Enabled}};
+    }
+    if (scene.HasFollowCamera(entity)) {
+        const FollowCameraComponent& follow = scene.GetFollowCamera(entity);
+        j["followCamera"] = {
+            {"target", follow.TargetName},
+            {"distance", follow.Distance},
+            {"height", follow.Height},
+            {"yaw", follow.YawRadians},
+            {"pitch", follow.PitchRadians},
+        };
+    }
+    if (scene.HasScript(entity)) {
+        const ScriptComponent& script = scene.GetScript(entity);
+        j["script"] = {
+            {"path", script.AssetPath},
+            {"source", script.Source},
+        };
+    }
+    if (scene.HasAudioSource(entity)) {
+        const AudioSourceComponent& audio = scene.GetAudioSource(entity);
+        j["audioSource"] = {
+            {"sound", audio.SoundId},
+            {"playOnStart", audio.PlayOnStart},
+        };
+    }
+
     return j;
 }
 
@@ -214,6 +264,9 @@ bool EntityFromJson(const json& entityJson, Scene& scene, std::string& error) {
     }
 
     Entity entity = scene.CreateEntity(entityJson["name"].get<std::string>());
+    if (entityJson.contains("showAxes") && entityJson["showAxes"].is_boolean()) {
+        scene.SetShowAxes(entity, entityJson["showAxes"].get<bool>());
+    }
 
     if (entityJson.contains("transform")) {
         if (!TransformFromJson(entityJson["transform"], scene.GetTransform(entity), error)) {
@@ -250,6 +303,7 @@ bool EntityFromJson(const json& entityJson, Scene& scene, std::string& error) {
         if (meshJson.contains("albedoColor")) {
             if (!Vec3FromJson(meshJson["albedoColor"], mesh.AlbedoColor, error)) return false;
         }
+        mesh.Opacity = meshJson.value("opacity", 1.0f);
         if (meshJson.contains("albedoTexture")) {
             mesh.AlbedoTexturePath = meshJson["albedoTexture"].get<std::string>();
         }
@@ -359,6 +413,79 @@ bool EntityFromJson(const json& entityJson, Scene& scene, std::string& error) {
         scene.AddPointLight(entity, light);
     }
 
+    if (entityJson.contains("characterController")) {
+        const json& cJson = entityJson["characterController"];
+        if (!cJson.is_object()) {
+            error = "characterController must be an object";
+            return false;
+        }
+        CharacterControllerComponent character;
+        character.MoveSpeed = cJson.value("moveSpeed", character.MoveSpeed);
+        character.JumpSpeed = cJson.value("jumpSpeed", character.JumpSpeed);
+        character.Gravity = cJson.value("gravity", character.Gravity);
+        character.Height = cJson.value("height", character.Height);
+        character.FootOffset = cJson.value("footOffset", character.FootOffset);
+        character.SprintMultiplier = cJson.value("sprint", character.SprintMultiplier);
+        character.CrouchMultiplier = cJson.value("crouch", character.CrouchMultiplier);
+        character.Team = cJson.value("team", character.Team);
+        character.Health = cJson.value("health", character.Health);
+        character.MaxHealth = cJson.value("maxHealth", character.MaxHealth);
+        character.AttackDamage = cJson.value("attackDamage", character.AttackDamage);
+        character.AttackRange = cJson.value("attackRange", character.AttackRange);
+        character.DetectRange = cJson.value("detectRange", character.DetectRange);
+        scene.AddCharacterController(entity, character);
+    }
+
+    if (entityJson.contains("playerController")) {
+        const json& pJson = entityJson["playerController"];
+        if (!pJson.is_object()) {
+            error = "playerController must be an object";
+            return false;
+        }
+        PlayerControllerComponent player;
+        player.Enabled = pJson.value("enabled", true);
+        scene.AddPlayerController(entity, player);
+    }
+
+    if (entityJson.contains("followCamera")) {
+        const json& fJson = entityJson["followCamera"];
+        if (!fJson.is_object()) {
+            error = "followCamera must be an object";
+            return false;
+        }
+        FollowCameraComponent follow;
+        follow.TargetName = fJson.value("target", follow.TargetName);
+        follow.Distance = fJson.value("distance", follow.Distance);
+        follow.Height = fJson.value("height", follow.Height);
+        follow.YawRadians = fJson.value("yaw", follow.YawRadians);
+        follow.PitchRadians = fJson.value("pitch", follow.PitchRadians);
+        scene.AddFollowCamera(entity, follow);
+    }
+
+    if (entityJson.contains("script")) {
+        const json& sJson = entityJson["script"];
+        if (!sJson.is_object()) {
+            error = "script must be an object";
+            return false;
+        }
+        ScriptComponent script;
+        script.AssetPath = sJson.value("path", script.AssetPath);
+        script.Source = sJson.value("source", script.Source);
+        scene.AddScript(entity, script);
+    }
+
+    if (entityJson.contains("audioSource")) {
+        const json& aJson = entityJson["audioSource"];
+        if (!aJson.is_object()) {
+            error = "audioSource must be an object";
+            return false;
+        }
+        AudioSourceComponent audio;
+        audio.SoundId = aJson.value("sound", audio.SoundId);
+        audio.PlayOnStart = aJson.value("playOnStart", audio.PlayOnStart);
+        scene.AddAudioSource(entity, audio);
+    }
+
     return true;
 }
 
@@ -372,6 +499,11 @@ struct EntitySnapshot {
     std::optional<PointLightComponent> PointLight;
     std::optional<RotatorComponent> Rotator;
     std::optional<MoverComponent> Mover;
+    std::optional<CharacterControllerComponent> Character;
+    std::optional<PlayerControllerComponent> Player;
+    std::optional<FollowCameraComponent> Follow;
+    std::optional<ScriptComponent> Script;
+    std::optional<AudioSourceComponent> Audio;
 };
 
 std::vector<EntitySnapshot> SnapshotScene(const Scene& scene) {
@@ -390,6 +522,11 @@ std::vector<EntitySnapshot> SnapshotScene(const Scene& scene) {
         if (scene.HasPointLight(entity)) snap.PointLight = scene.GetPointLight(entity);
         if (scene.HasRotator(entity)) snap.Rotator = scene.GetRotator(entity);
         if (scene.HasMover(entity)) snap.Mover = scene.GetMover(entity);
+        if (scene.HasCharacterController(entity)) snap.Character = scene.GetCharacterController(entity);
+        if (scene.HasPlayerController(entity)) snap.Player = scene.GetPlayerController(entity);
+        if (scene.HasFollowCamera(entity)) snap.Follow = scene.GetFollowCamera(entity);
+        if (scene.HasScript(entity)) snap.Script = scene.GetScript(entity);
+        if (scene.HasAudioSource(entity)) snap.Audio = scene.GetAudioSource(entity);
         snapshots.push_back(std::move(snap));
     });
     return snapshots;
@@ -440,6 +577,25 @@ Entity CopyEntityInto(const Scene& src, Entity source, Scene& dest, const std::s
     }
     if (src.HasMover(source)) {
         dest.AddMover(copy, src.GetMover(source));
+    }
+    if (src.HasCharacterController(source)) {
+        dest.AddCharacterController(copy, src.GetCharacterController(source));
+    }
+    if (src.HasPlayerController(source)) {
+        dest.AddPlayerController(copy, src.GetPlayerController(source));
+    }
+    if (src.HasFollowCamera(source)) {
+        dest.AddFollowCamera(copy, src.GetFollowCamera(source));
+    }
+    if (src.HasScript(source)) {
+        ScriptComponent script = src.GetScript(source);
+        script.RanStart = false;
+        dest.AddScript(copy, script);
+    }
+    if (src.HasAudioSource(source)) {
+        AudioSourceComponent audio = src.GetAudioSource(source);
+        audio.Started = false;
+        dest.AddAudioSource(copy, audio);
     }
     return copy;
 }
@@ -602,6 +758,7 @@ bool ScenesEquivalent(const Scene& a, const Scene& b, float epsilon) {
                         sa.Mesh->AlbedoTexturePath != sb.Mesh->AlbedoTexturePath ||
                         sa.Mesh->AlbedoTextureId != sb.Mesh->AlbedoTextureId ||
                         sa.Mesh->UseAlbedoTexture != sb.Mesh->UseAlbedoTexture ||
+                        !NearlyEqual(sa.Mesh->Opacity, sb.Mesh->Opacity, epsilon) ||
                         !Vec3Near(sa.Mesh->AlbedoColor, sb.Mesh->AlbedoColor, epsilon))) {
             return false;
         }
@@ -616,6 +773,31 @@ bool ScenesEquivalent(const Scene& a, const Scene& b, float epsilon) {
 
         if (static_cast<bool>(sa.Mover) != static_cast<bool>(sb.Mover)) return false;
         if (sa.Mover && !Vec3Near(sa.Mover->Velocity, sb.Mover->Velocity, epsilon)) {
+            return false;
+        }
+
+        if (static_cast<bool>(sa.Character) != static_cast<bool>(sb.Character)) return false;
+        if (sa.Character) {
+            if (!NearlyEqual(sa.Character->MoveSpeed, sb.Character->MoveSpeed, epsilon) ||
+                !NearlyEqual(sa.Character->JumpSpeed, sb.Character->JumpSpeed, epsilon) ||
+                !NearlyEqual(sa.Character->Height, sb.Character->Height, epsilon) ||
+                sa.Character->Team != sb.Character->Team) {
+                return false;
+            }
+        }
+        if (static_cast<bool>(sa.Player) != static_cast<bool>(sb.Player)) return false;
+        if (sa.Player && sa.Player->Enabled != sb.Player->Enabled) return false;
+        if (static_cast<bool>(sa.Follow) != static_cast<bool>(sb.Follow)) return false;
+        if (sa.Follow && sa.Follow->TargetName != sb.Follow->TargetName) return false;
+
+        if (static_cast<bool>(sa.Script) != static_cast<bool>(sb.Script)) return false;
+        if (sa.Script && (sa.Script->AssetPath != sb.Script->AssetPath ||
+                          sa.Script->Source != sb.Script->Source)) {
+            return false;
+        }
+        if (static_cast<bool>(sa.Audio) != static_cast<bool>(sb.Audio)) return false;
+        if (sa.Audio && (sa.Audio->SoundId != sb.Audio->SoundId ||
+                         sa.Audio->PlayOnStart != sb.Audio->PlayOnStart)) {
             return false;
         }
 

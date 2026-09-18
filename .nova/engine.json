@@ -1,0 +1,16 @@
+{
+  "language": "ru",
+  "masterVolume": 0.0,
+  "mouseSensitivity": 1.0,
+  "invertY": "false",
+  "forward": "W",
+  "back": "S",
+  "left": "A",
+  "right": "D",
+  "jump": "Space",
+  "sprint": "LShift",
+  "crouch": "LCtrl",
+  "attack": "F",
+  "dodge": "Q",
+  "interact": "E"
+}

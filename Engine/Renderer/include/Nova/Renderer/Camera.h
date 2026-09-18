@@ -36,6 +36,17 @@ struct Camera {
     }
 };
 
+/// Third-person orbit: yaw around world Y, pitch from the horizon (0 = level, + = above).
+inline Vec3 OrbitEyePosition(const Vec3& target, float yawRadians, float pitchRadians,
+                             float distance) {
+    const float cp = std::cos(pitchRadians);
+    const float sp = std::sin(pitchRadians);
+    const float sy = std::sin(yawRadians);
+    const float cy = std::cos(yawRadians);
+    return {target.x + distance * cp * sy, target.y + distance * sp,
+            target.z + distance * cp * cy};
+}
+
 /// Maps world position to viewport pixel coordinates (top-left origin). Returns false if behind camera.
 bool ProjectWorldToViewport(const Mat4& viewProjection,
                             const Vec3& world,

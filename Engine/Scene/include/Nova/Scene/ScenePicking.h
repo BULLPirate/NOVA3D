@@ -22,4 +22,6 @@ Aabb WorldAabbFromLocal(const Mat4& world, const Aabb& local);
 /// Closest mesh under the cursor. Invalid entity if none.
 Entity PickSceneMesh(const Scene& scene, const Ray& worldRay);
 
+bool RayHitYPlane(const Ray& ray, float planeY, Vec3& outHit);
+
 } // namespace Nova

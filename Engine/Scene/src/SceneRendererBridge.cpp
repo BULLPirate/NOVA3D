@@ -6,6 +6,8 @@
 #include <Nova/Renderer/Lighting.h>
 #include <Nova/Renderer/Material.h>
 
+#include <algorithm>
+
 namespace Nova {
 
 bool BuildSceneCamera(const Scene& scene, float aspect, Camera& outCamera) {
@@ -31,7 +33,8 @@ void RenderScene(const Scene& scene,
                  float aspect,
                  const std::filesystem::path& projectRoot,
                  MeshAssetCache& meshCache,
-                 TextureAssetCache& textureCache) {
+                 TextureAssetCache& textureCache,
+                 float opacityMultiplier) {
     Camera camera;
     if (BuildSceneCamera(scene, aspect, camera)) {
         renderer.SetCamera(camera);
@@ -88,6 +91,7 @@ void RenderScene(const Scene& scene,
         material.TintR = mesh.AlbedoColor.x;
         material.TintG = mesh.AlbedoColor.y;
         material.TintB = mesh.AlbedoColor.z;
+        material.TintA = std::clamp(mesh.Opacity * opacityMultiplier, 0.0f, 1.0f);
         material.UseAlbedoTexture = mesh.UseAlbedoTexture;
         material.ReceiveShadows = mesh.ReceiveShadows;
 

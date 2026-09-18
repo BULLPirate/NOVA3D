@@ -28,6 +28,9 @@ add_executable(NovaTests
     PrefabTest.cpp
     PluginTest.cpp
     AssetRegistryTest.cpp
+    GameplayTest.cpp
+    EngineSettingsTest.cpp
+    ScriptTest.cpp
 )
 
 target_compile_definitions(NovaTests PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
@@ -45,6 +48,7 @@ target_link_libraries(NovaTests PRIVATE
     NovaScene
     NovaAssets
     NovaPlugins
+    NovaAudio
     GTest::gtest_main
 )
 

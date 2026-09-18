@@ -46,6 +46,9 @@ bool RayIntersectsAabb(const Ray& ray, const Aabb& box, float& outDistance) {
 }
 
 Aabb LocalBoundsForMesh(const MeshRendererComponent& mesh) {
+    if (!mesh.AssetPath.empty()) {
+        return {{-0.5f, 0.0f, -0.5f}, {0.7f, 2.0f, 0.55f}};
+    }
     if (mesh.Primitive == MeshPrimitive::UnitPlane) {
         return {{-0.5f, -0.02f, -0.5f}, {0.5f, 0.02f, 0.5f}};
     }
@@ -93,6 +96,18 @@ Entity PickSceneMesh(const Scene& scene, const Ray& worldRay) {
         }
     });
     return best;
+}
+
+bool RayHitYPlane(const Ray& ray, float planeY, Vec3& outHit) {
+    if (std::fabs(ray.Direction.y) < 1e-6f) {
+        return false;
+    }
+    const float t = (planeY - ray.Origin.y) / ray.Direction.y;
+    if (t < 0.0f) {
+        return false;
+    }
+    outHit = ray.Origin + ray.Direction * t;
+    return true;
 }
 
 } // namespace Nova

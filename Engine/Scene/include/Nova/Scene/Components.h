@@ -23,6 +23,8 @@ struct MeshRendererComponent {
     /// Stable id from AssetRegistry; empty Guid if the mesh is a builtin primitive.
     AssetId MeshAssetId;
     Vec3 AlbedoColor{1.0f, 1.0f, 1.0f};
+    /// 1 = fully visible. Play always uses 1 unless this is lowered per-entity.
+    float Opacity = 1.0f;
     /// Project-relative PNG, e.g. Assets/Textures/brick.png
     std::string AlbedoTexturePath;
     AssetId AlbedoTextureId;
@@ -53,8 +55,8 @@ struct CameraComponent {
 struct DirectionalLightComponent {
     /// World-space direction **light rays travel** (from sun toward the scene).
     Vec3 Direction{0.45f, -0.88f, 0.15f};
-    Vec3 Color{1.0f, 0.98f, 0.95f};
-    float Ambient = 0.12f;
+    Vec3 Color{1.0f, 0.98f, 0.92f};
+    float Ambient = 0.42f;
 };
 
 struct PointLightComponent {
@@ -64,7 +66,62 @@ struct PointLightComponent {
 };
 
 struct SceneSettings {
-    Vec3 ClearColor{0.10f, 0.11f, 0.14f};
+    Vec3 ClearColor{0.52f, 0.66f, 0.80f};
+};
+
+struct CharacterControllerComponent {
+    float MoveSpeed = 6.0f;
+    float JumpSpeed = 6.5f;
+    float Gravity = 20.0f;
+    float Height = 1.85f;
+    float FootOffset = 0.0f;
+    float SprintMultiplier = 1.75f;
+    float CrouchMultiplier = 0.5f;
+    float AirControl = 0.42f;
+    float DodgeSpeed = 13.0f;
+    float VerticalVelocity = 0.0f;
+    float DodgeTimer = 0.0f;
+    float AttackTimer = 0.0f;
+    Vec3 DodgeVelocity{0.0f, 0.0f, 0.0f};
+    bool Grounded = true;
+    bool Crouching = false;
+    /// 0 = player/friendly, 1 = enemy.
+    int Team = 0;
+    float Health = 100.0f;
+    float MaxHealth = 100.0f;
+    float AttackDamage = 28.0f;
+    float AttackRange = 2.35f;
+    float DetectRange = 16.0f;
+    float AiCooldown = 0.0f;
+    bool Dead = false;
+    /// Yaw the body faces. Camera look is separate.
+    float FacingYaw = 0.0f;
+};
+
+struct PlayerControllerComponent {
+    bool Enabled = true;
+};
+
+struct FollowCameraComponent {
+    std::string TargetName = "Player";
+    float Distance = 8.0f;
+    float Height = 3.2f;
+    float YawRadians = 0.0f;
+    float PitchRadians = 0.35f;
+    float MouseSensitivity = 0.0045f;
+};
+
+/// Inline NovaScript or a project file under Assets/Scripts.
+struct ScriptComponent {
+    std::string Source;
+    std::string AssetPath;
+    bool RanStart = false;
+};
+
+struct AudioSourceComponent {
+    std::string SoundId = "confirm";
+    bool PlayOnStart = true;
+    bool Started = false;
 };
 
 } // namespace Nova

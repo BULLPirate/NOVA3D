@@ -2,48 +2,2270 @@
   "entities": [
     {
       "directionalLight": {
-        "ambient": 0.12,
-        "color": [1.0, 0.98, 0.95],
-        "direction": [0.44925081729888916, -0.8807054758071899, 0.15010564029216766]
+        "ambient": 0.41999998688697815,
+        "color": [
+          1.0,
+          0.9800000190734863,
+          0.9200000166893005
+        ],
+        "direction": [
+          0.4501350522041321,
+          -0.8802641034126282,
+          0.1500450223684311
+        ]
       },
       "name": "Sun",
       "transform": {
-        "position": [0.0, 0.0, 0.0],
-        "rotation": [0.0, 0.0, 0.0, 1.0],
-        "scale": [1.0, 1.0, 1.0]
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
       }
     },
     {
       "camera": {
         "far": 100.0,
         "fovYRadians": 1.0471975803375244,
-        "lookAt": [0.0, 0.0, 0.0],
-        "near": 0.1,
+        "lookAt": [
+          0.0,
+          1.25,
+          0.0
+        ],
+        "near": 0.10000000149011612,
         "primary": true
+      },
+      "followCamera": {
+        "distance": 6.800000190734863,
+        "height": 3.200000047683716,
+        "pitch": 0.41999998688697815,
+        "target": "Player",
+        "yaw": 0.0
       },
       "name": "Main Camera",
       "transform": {
-        "position": [0.0, 0.35, 3.2],
-        "rotation": [0.0, 0.0, 0.0, 1.0],
-        "scale": [1.0, 1.0, 1.0]
+        "position": [
+          0.0,
+          4.400000095367432,
+          7.199999809265137
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
       }
     },
     {
       "meshRenderer": {
-        "albedoColor": [1.0, 1.0, 1.0],
-        "albedoTexture": "Assets/Textures/checker.png",
+        "albedoColor": [
+          0.3400000035762787,
+          0.5,
+          0.23999999463558197
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitPlane",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Ground",
+      "transform": {
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          30.0,
+          1.0,
+          30.0
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.44999998807907104,
+          0.36000001430511475,
+          0.23999999463558197
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitPlane",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Road",
+      "transform": {
+        "position": [
+          0.0,
+          0.019999999552965164,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          4.199999809265137,
+          1.0,
+          22.0
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.5199999809265137,
+          0.5,
+          0.46000000834465027
+        ],
+        "opacity": 1.0,
         "primitive": "UnitCube",
         "receiveShadows": false,
-        "useAlbedoTexture": true
+        "useAlbedoTexture": false
       },
-      "name": "Cube",
+      "name": "Wall North",
       "transform": {
-        "position": [0.0, 0.0, 0.0],
-        "rotation": [0.0, 0.0, 0.0, 1.0],
-        "scale": [1.0, 1.0, 1.0]
+        "position": [
+          0.0,
+          1.2999999523162842,
+          -14.5
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          30.0,
+          2.5999999046325684,
+          0.550000011920929
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.5199999809265137,
+          0.5,
+          0.46000000834465027
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Wall South",
+      "transform": {
+        "position": [
+          0.0,
+          1.2999999523162842,
+          14.5
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          30.0,
+          2.5999999046325684,
+          0.550000011920929
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.5199999809265137,
+          0.5,
+          0.46000000834465027
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Wall West",
+      "transform": {
+        "position": [
+          -14.5,
+          1.2999999523162842,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.550000011920929,
+          2.5999999046325684,
+          30.0
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.5199999809265137,
+          0.5,
+          0.46000000834465027
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Wall East",
+      "transform": {
+        "position": [
+          14.5,
+          1.2999999523162842,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.550000011920929,
+          2.5999999046325684,
+          30.0
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.6200000047683716,
+          0.41999998688697815,
+          0.2800000011920929
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "House A",
+      "transform": {
+        "position": [
+          -8.5,
+          1.100000023841858,
+          -6.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          3.4000000953674316,
+          2.200000047683716,
+          3.0
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.41999998688697815,
+          0.1599999964237213,
+          0.14000000059604645
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "House A Roof",
+      "transform": {
+        "position": [
+          -8.5,
+          2.4800000190734863,
+          -6.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          3.700000047683716,
+          0.3499999940395355,
+          3.299999952316284
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.6200000047683716,
+          0.41999998688697815,
+          0.2800000011920929
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "House B",
+      "transform": {
+        "position": [
+          8.800000190734863,
+          1.0,
+          -5.199999809265137
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          3.0,
+          2.0,
+          3.4000000953674316
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.41999998688697815,
+          0.1599999964237213,
+          0.14000000059604645
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "House B Roof",
+      "transform": {
+        "position": [
+          8.800000190734863,
+          2.2799999713897705,
+          -5.199999809265137
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          3.299999952316284,
+          0.3499999940395355,
+          3.700000047683716
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.6200000047683716,
+          0.41999998688697815,
+          0.2800000011920929
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "House C",
+      "transform": {
+        "position": [
+          -7.800000190734863,
+          1.2000000476837158,
+          7.400000095367432
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          3.5999999046325684,
+          2.4000000953674316,
+          3.200000047683716
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.41999998688697815,
+          0.1599999964237213,
+          0.14000000059604645
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "House C Roof",
+      "transform": {
+        "position": [
+          -7.800000190734863,
+          2.680000066757202,
+          7.400000095367432
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          3.8999998569488525,
+          0.3499999940395355,
+          3.5
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.47999998927116394,
+          0.47999998927116394,
+          0.5
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Well",
+      "transform": {
+        "position": [
+          2.200000047683716,
+          0.44999998807907104,
+          2.4000000953674316
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.100000023841858,
+          0.8999999761581421,
+          1.100000023841858
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.4000000059604645,
+          0.2800000011920929,
+          0.1599999964237213
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Crate",
+      "transform": {
+        "position": [
+          -2.4000000953674316,
+          0.4000000059604645,
+          4.199999809265137
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.800000011920929,
+          0.800000011920929,
+          0.800000011920929
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.4000000059604645,
+          0.2800000011920929,
+          0.1599999964237213
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Crate 2",
+      "transform": {
+        "position": [
+          5.400000095367432,
+          0.3499999940395355,
+          6.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.699999988079071,
+          0.699999988079071,
+          0.699999988079071
+        ]
+      }
+    },
+    {
+      "characterController": {
+        "attackDamage": 50.0,
+        "attackRange": 2.5,
+        "crouch": 0.5,
+        "detectRange": 16.0,
+        "footOffset": 0.0,
+        "gravity": 20.0,
+        "health": 200.0,
+        "height": 1.850000023841858,
+        "jumpSpeed": 6.5,
+        "maxHealth": 200.0,
+        "moveSpeed": 6.0,
+        "sprint": 1.75,
+        "team": 0
+      },
+      "name": "Player",
+      "playerController": {
+        "enabled": true
+      },
+      "script": {
+        "path": "Assets/Scripts/player.ns",
+        "source": "speed 6.2\njump 6.5\n"
+      },
+      "transform": {
+        "position": [
+          0.0,
+          0.019999999552965164,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.7200000286102295,
+          0.7599999904632568,
+          0.8399999737739563
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Player Body",
+      "parent": "Player",
+      "transform": {
+        "position": [
+          0.0,
+          1.0800000429153442,
+          0.03999999910593033
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.46000000834465027,
+          0.5799999833106995,
+          0.30000001192092896
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.7200000286102295,
+          0.7599999904632568,
+          0.8399999737739563
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitSphere",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Player Head",
+      "parent": "Player",
+      "transform": {
+        "position": [
+          0.0,
+          1.5199999809265137,
+          0.03999999910593033
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.30000001192092896,
+          0.30000001192092896,
+          0.30000001192092896
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.8600000143051147,
+          0.6800000071525574,
+          0.5199999809265137
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitSphere",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Player Face",
+      "parent": "Player",
+      "transform": {
+        "position": [
+          0.0,
+          1.4800000190734863,
+          0.11999999731779099
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.1599999964237213,
+          0.14000000059604645,
+          0.10000000149011612
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.2199999988079071,
+          0.23999999463558197,
+          0.30000001192092896
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Player LegL",
+      "parent": "Player",
+      "transform": {
+        "position": [
+          -0.11999999731779099,
+          0.41999998688697815,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.1599999964237213,
+          0.7200000286102295,
+          0.1599999964237213
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.2199999988079071,
+          0.23999999463558197,
+          0.30000001192092896
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Player LegR",
+      "parent": "Player",
+      "transform": {
+        "position": [
+          0.11999999731779099,
+          0.41999998688697815,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.1599999964237213,
+          0.7200000286102295,
+          0.1599999964237213
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.7200000286102295,
+          0.7599999904632568,
+          0.8399999737739563
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Player ArmL",
+      "parent": "Player",
+      "transform": {
+        "position": [
+          -0.3400000035762787,
+          1.0800000429153442,
+          0.03999999910593033
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.14000000059604645,
+          0.5199999809265137,
+          0.14000000059604645
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.7200000286102295,
+          0.7599999904632568,
+          0.8399999737739563
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Player ArmR",
+      "parent": "Player",
+      "transform": {
+        "position": [
+          0.3400000035762787,
+          1.0800000429153442,
+          0.07999999821186066
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.14000000059604645,
+          0.5199999809265137,
+          0.14000000059604645
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.8199999928474426,
+          0.6399999856948853,
+          0.2199999988079071
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Player Sword",
+      "parent": "Player",
+      "transform": {
+        "position": [
+          0.41999998688697815,
+          1.0499999523162842,
+          0.2800000011920929
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.07000000029802322,
+          0.07000000029802322,
+          1.0499999523162842
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.7200000286102295,
+          0.7599999904632568,
+          0.8399999737739563
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Player Shield",
+      "parent": "Player",
+      "transform": {
+        "position": [
+          -0.41999998688697815,
+          0.949999988079071,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.05999999865889549,
+          0.47999998927116394,
+          0.36000001430511475
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.25,
+          0.8199999928474426,
+          0.3199999928474426
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Player HP",
+      "parent": "Player",
+      "transform": {
+        "position": [
+          0.0,
+          1.9500000476837158,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.8999999761581421,
+          0.07999999821186066,
+          0.07999999821186066
+        ]
+      }
+    },
+    {
+      "characterController": {
+        "attackDamage": 6.0,
+        "attackRange": 1.649999976158142,
+        "crouch": 0.5,
+        "detectRange": 15.0,
+        "footOffset": 0.0,
+        "gravity": 20.0,
+        "health": 32.0,
+        "height": 1.75,
+        "jumpSpeed": 6.5,
+        "maxHealth": 32.0,
+        "moveSpeed": 3.200000047683716,
+        "sprint": 1.75,
+        "team": 1
+      },
+      "name": "Bandit 1",
+      "transform": {
+        "position": [
+          6.5,
+          0.019999999552965164,
+          -3.5
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 1 Body",
+      "parent": "Bandit 1",
+      "transform": {
+        "position": [
+          0.0,
+          1.0199999809265137,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.4000000059604645,
+          0.5199999809265137,
+          0.25999999046325684
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.8600000143051147,
+          0.6800000071525574,
+          0.5199999809265137
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitSphere",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 1 Head",
+      "parent": "Bandit 1",
+      "transform": {
+        "position": [
+          0.0,
+          1.4600000381469727,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.25999999046325684,
+          0.25999999046325684,
+          0.25999999046325684
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.550000011920929,
+          0.14000000059604645,
+          0.1599999964237213
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitSphere",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 1 Hood",
+      "parent": "Bandit 1",
+      "transform": {
+        "position": [
+          0.0,
+          1.5399999618530273,
+          -0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.3199999928474426,
+          0.2199999988079071,
+          0.3199999928474426
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 1 LegL",
+      "parent": "Bandit 1",
+      "transform": {
+        "position": [
+          -0.10000000149011612,
+          0.4000000059604645,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.14000000059604645,
+          0.6800000071525574,
+          0.14000000059604645
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 1 LegR",
+      "parent": "Bandit 1",
+      "transform": {
+        "position": [
+          0.10000000149011612,
+          0.4000000059604645,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.14000000059604645,
+          0.6800000071525574,
+          0.14000000059604645
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 1 ArmL",
+      "parent": "Bandit 1",
+      "transform": {
+        "position": [
+          -0.30000001192092896,
+          1.0199999809265137,
+          0.03999999910593033
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.11999999731779099,
+          0.47999998927116394,
+          0.11999999731779099
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 1 ArmR",
+      "parent": "Bandit 1",
+      "transform": {
+        "position": [
+          0.30000001192092896,
+          1.0199999809265137,
+          0.07999999821186066
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.11999999731779099,
+          0.47999998927116394,
+          0.11999999731779099
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.41999998688697815,
+          0.2800000011920929,
+          0.14000000059604645
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 1 Club",
+      "parent": "Bandit 1",
+      "transform": {
+        "position": [
+          0.3799999952316284,
+          1.100000023841858,
+          0.2199999988079071
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.10000000149011612,
+          0.10000000149011612,
+          0.7200000286102295
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.8600000143051147,
+          0.18000000715255737,
+          0.1599999964237213
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 1 HP",
+      "parent": "Bandit 1",
+      "transform": {
+        "position": [
+          0.0,
+          1.9500000476837158,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.8999999761581421,
+          0.07999999821186066,
+          0.07999999821186066
+        ]
+      }
+    },
+    {
+      "characterController": {
+        "attackDamage": 6.0,
+        "attackRange": 1.649999976158142,
+        "crouch": 0.5,
+        "detectRange": 15.0,
+        "footOffset": 0.0,
+        "gravity": 20.0,
+        "health": 32.0,
+        "height": 1.75,
+        "jumpSpeed": 6.5,
+        "maxHealth": 32.0,
+        "moveSpeed": 3.200000047683716,
+        "sprint": 1.75,
+        "team": 1
+      },
+      "name": "Bandit 2",
+      "transform": {
+        "position": [
+          -6.199999809265137,
+          0.019999999552965164,
+          5.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 2 Body",
+      "parent": "Bandit 2",
+      "transform": {
+        "position": [
+          0.0,
+          1.0199999809265137,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.4000000059604645,
+          0.5199999809265137,
+          0.25999999046325684
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.8600000143051147,
+          0.6800000071525574,
+          0.5199999809265137
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitSphere",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 2 Head",
+      "parent": "Bandit 2",
+      "transform": {
+        "position": [
+          0.0,
+          1.4600000381469727,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.25999999046325684,
+          0.25999999046325684,
+          0.25999999046325684
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.550000011920929,
+          0.14000000059604645,
+          0.1599999964237213
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitSphere",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 2 Hood",
+      "parent": "Bandit 2",
+      "transform": {
+        "position": [
+          0.0,
+          1.5399999618530273,
+          -0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.3199999928474426,
+          0.2199999988079071,
+          0.3199999928474426
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 2 LegL",
+      "parent": "Bandit 2",
+      "transform": {
+        "position": [
+          -0.10000000149011612,
+          0.4000000059604645,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.14000000059604645,
+          0.6800000071525574,
+          0.14000000059604645
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 2 LegR",
+      "parent": "Bandit 2",
+      "transform": {
+        "position": [
+          0.10000000149011612,
+          0.4000000059604645,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.14000000059604645,
+          0.6800000071525574,
+          0.14000000059604645
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 2 ArmL",
+      "parent": "Bandit 2",
+      "transform": {
+        "position": [
+          -0.30000001192092896,
+          1.0199999809265137,
+          0.03999999910593033
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.11999999731779099,
+          0.47999998927116394,
+          0.11999999731779099
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 2 ArmR",
+      "parent": "Bandit 2",
+      "transform": {
+        "position": [
+          0.30000001192092896,
+          1.0199999809265137,
+          0.07999999821186066
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.11999999731779099,
+          0.47999998927116394,
+          0.11999999731779099
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.41999998688697815,
+          0.2800000011920929,
+          0.14000000059604645
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 2 Club",
+      "parent": "Bandit 2",
+      "transform": {
+        "position": [
+          0.3799999952316284,
+          1.100000023841858,
+          0.2199999988079071
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.10000000149011612,
+          0.10000000149011612,
+          0.7200000286102295
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.8600000143051147,
+          0.18000000715255737,
+          0.1599999964237213
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 2 HP",
+      "parent": "Bandit 2",
+      "transform": {
+        "position": [
+          0.0,
+          1.9500000476837158,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.8999999761581421,
+          0.07999999821186066,
+          0.07999999821186066
+        ]
+      }
+    },
+    {
+      "characterController": {
+        "attackDamage": 6.0,
+        "attackRange": 1.649999976158142,
+        "crouch": 0.5,
+        "detectRange": 15.0,
+        "footOffset": 0.0,
+        "gravity": 20.0,
+        "health": 32.0,
+        "height": 1.75,
+        "jumpSpeed": 6.5,
+        "maxHealth": 32.0,
+        "moveSpeed": 3.200000047683716,
+        "sprint": 1.75,
+        "team": 1
+      },
+      "name": "Bandit 3",
+      "transform": {
+        "position": [
+          4.800000190734863,
+          0.019999999552965164,
+          8.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 3 Body",
+      "parent": "Bandit 3",
+      "transform": {
+        "position": [
+          0.0,
+          1.0199999809265137,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.4000000059604645,
+          0.5199999809265137,
+          0.25999999046325684
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.8600000143051147,
+          0.6800000071525574,
+          0.5199999809265137
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitSphere",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 3 Head",
+      "parent": "Bandit 3",
+      "transform": {
+        "position": [
+          0.0,
+          1.4600000381469727,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.25999999046325684,
+          0.25999999046325684,
+          0.25999999046325684
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.550000011920929,
+          0.14000000059604645,
+          0.1599999964237213
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitSphere",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 3 Hood",
+      "parent": "Bandit 3",
+      "transform": {
+        "position": [
+          0.0,
+          1.5399999618530273,
+          -0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.3199999928474426,
+          0.2199999988079071,
+          0.3199999928474426
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 3 LegL",
+      "parent": "Bandit 3",
+      "transform": {
+        "position": [
+          -0.10000000149011612,
+          0.4000000059604645,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.14000000059604645,
+          0.6800000071525574,
+          0.14000000059604645
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 3 LegR",
+      "parent": "Bandit 3",
+      "transform": {
+        "position": [
+          0.10000000149011612,
+          0.4000000059604645,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.14000000059604645,
+          0.6800000071525574,
+          0.14000000059604645
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 3 ArmL",
+      "parent": "Bandit 3",
+      "transform": {
+        "position": [
+          -0.30000001192092896,
+          1.0199999809265137,
+          0.03999999910593033
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.11999999731779099,
+          0.47999998927116394,
+          0.11999999731779099
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 3 ArmR",
+      "parent": "Bandit 3",
+      "transform": {
+        "position": [
+          0.30000001192092896,
+          1.0199999809265137,
+          0.07999999821186066
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.11999999731779099,
+          0.47999998927116394,
+          0.11999999731779099
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.41999998688697815,
+          0.2800000011920929,
+          0.14000000059604645
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 3 Club",
+      "parent": "Bandit 3",
+      "transform": {
+        "position": [
+          0.3799999952316284,
+          1.100000023841858,
+          0.2199999988079071
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.10000000149011612,
+          0.10000000149011612,
+          0.7200000286102295
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.8600000143051147,
+          0.18000000715255737,
+          0.1599999964237213
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 3 HP",
+      "parent": "Bandit 3",
+      "transform": {
+        "position": [
+          0.0,
+          1.9500000476837158,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.8999999761581421,
+          0.07999999821186066,
+          0.07999999821186066
+        ]
+      }
+    },
+    {
+      "characterController": {
+        "attackDamage": 6.0,
+        "attackRange": 1.649999976158142,
+        "crouch": 0.5,
+        "detectRange": 15.0,
+        "footOffset": 0.0,
+        "gravity": 20.0,
+        "health": 32.0,
+        "height": 1.75,
+        "jumpSpeed": 6.5,
+        "maxHealth": 32.0,
+        "moveSpeed": 3.200000047683716,
+        "sprint": 1.75,
+        "team": 1
+      },
+      "name": "Bandit 4",
+      "transform": {
+        "position": [
+          -3.5,
+          0.019999999552965164,
+          -7.199999809265137
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 4 Body",
+      "parent": "Bandit 4",
+      "transform": {
+        "position": [
+          0.0,
+          1.0199999809265137,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.4000000059604645,
+          0.5199999809265137,
+          0.25999999046325684
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.8600000143051147,
+          0.6800000071525574,
+          0.5199999809265137
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitSphere",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 4 Head",
+      "parent": "Bandit 4",
+      "transform": {
+        "position": [
+          0.0,
+          1.4600000381469727,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.25999999046325684,
+          0.25999999046325684,
+          0.25999999046325684
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.550000011920929,
+          0.14000000059604645,
+          0.1599999964237213
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitSphere",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 4 Hood",
+      "parent": "Bandit 4",
+      "transform": {
+        "position": [
+          0.0,
+          1.5399999618530273,
+          -0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.3199999928474426,
+          0.2199999988079071,
+          0.3199999928474426
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 4 LegL",
+      "parent": "Bandit 4",
+      "transform": {
+        "position": [
+          -0.10000000149011612,
+          0.4000000059604645,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.14000000059604645,
+          0.6800000071525574,
+          0.14000000059604645
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 4 LegR",
+      "parent": "Bandit 4",
+      "transform": {
+        "position": [
+          0.10000000149011612,
+          0.4000000059604645,
+          0.019999999552965164
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.14000000059604645,
+          0.6800000071525574,
+          0.14000000059604645
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 4 ArmL",
+      "parent": "Bandit 4",
+      "transform": {
+        "position": [
+          -0.30000001192092896,
+          1.0199999809265137,
+          0.03999999910593033
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.11999999731779099,
+          0.47999998927116394,
+          0.11999999731779099
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.46000000834465027,
+          0.30000001192092896,
+          0.18000000715255737
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 4 ArmR",
+      "parent": "Bandit 4",
+      "transform": {
+        "position": [
+          0.30000001192092896,
+          1.0199999809265137,
+          0.07999999821186066
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.11999999731779099,
+          0.47999998927116394,
+          0.11999999731779099
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.41999998688697815,
+          0.2800000011920929,
+          0.14000000059604645
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 4 Club",
+      "parent": "Bandit 4",
+      "transform": {
+        "position": [
+          0.3799999952316284,
+          1.100000023841858,
+          0.2199999988079071
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.10000000149011612,
+          0.10000000149011612,
+          0.7200000286102295
+        ]
+      }
+    },
+    {
+      "meshRenderer": {
+        "albedoColor": [
+          0.8600000143051147,
+          0.18000000715255737,
+          0.1599999964237213
+        ],
+        "opacity": 1.0,
+        "primitive": "UnitCube",
+        "receiveShadows": false,
+        "useAlbedoTexture": false
+      },
+      "name": "Bandit 4 HP",
+      "parent": "Bandit 4",
+      "transform": {
+        "position": [
+          0.0,
+          1.9500000476837158,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.8999999761581421,
+          0.07999999821186066,
+          0.07999999821186066
+        ]
       }
     }
   ],
+  "environment": {
+    "clearColor": [
+      0.550000011920929,
+      0.699999988079071,
+      0.8600000143051147
+    ]
+  },
   "format": "nova.scene",
   "version": 1
 }

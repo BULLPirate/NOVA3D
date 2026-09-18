@@ -55,6 +55,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/Engine/Math/include
     ${CMAKE_SOURCE_DIR}/Engine/Renderer/include
     ${CMAKE_SOURCE_DIR}/Engine/Scene/include
+    ${CMAKE_SOURCE_DIR}/Engine/Audio/include
     ${CMAKE_SOURCE_DIR}/Engine/Plugins/include
 )
 

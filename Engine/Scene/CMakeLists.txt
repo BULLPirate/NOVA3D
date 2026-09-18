@@ -14,7 +14,9 @@ add_library(NovaScene STATIC
     src/SceneRuntime.cpp
     src/ScenePicking.cpp
     src/Project.cpp
+    src/Gameplay.cpp
+    src/Script.cpp
 )
 
 target_include_directories(NovaScene PUBLIC include)
-target_link_libraries(NovaScene PUBLIC NovaCore NovaMath NovaRenderer NovaAssets nlohmann_json::nlohmann_json)
+target_link_libraries(NovaScene PUBLIC NovaCore NovaMath NovaRenderer NovaAssets NovaAudio nlohmann_json::nlohmann_json)

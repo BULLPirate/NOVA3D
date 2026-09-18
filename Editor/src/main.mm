@@ -1,6 +1,11 @@
 #include <Nova/Core/Log.h>
 #include <Nova/Core/Input.h>
 #include <Nova/Core/Time.h>
+#include <Nova/Core/EngineSettings.h>
+#include <Nova/Core/FileSystem.h>
+#include <Nova/Audio/AudioEngine.h>
+#include <Nova/Scene/Script.h>
+#include <Editor/I18n.h>
 #include <Nova/Platform/MacApp.h>
 #include <Nova/Platform/Window.h>
 #include <Nova/Project/Project.h>
@@ -12,6 +17,7 @@
 #include <Nova/Scene/SceneRendererBridge.h>
 #include <Nova/Scene/ScenePicking.h>
 #include <Nova/Scene/SceneRuntime.h>
+#include <Nova/Scene/Gameplay.h>
 #include <Nova/Plugins/BuiltinPlugins.h>
 #include <Nova/Plugins/PluginRegistry.h>
 #include <Nova/Plugins/ServiceHub.h>
@@ -39,6 +45,8 @@
 #include <cstdio>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -171,8 +179,10 @@ void FocusOrbitOn(const Nova::Scene& scene, Nova::Entity entity, OrbitCamera& or
     if (!entity.IsValid() || !scene.IsAlive(entity)) {
         return;
     }
-    orbit.Target = WorldPositionFromMatrix(scene.GetWorldMatrix(entity));
-    orbit.Distance = Nova::Clamp(orbit.Distance, 1.5f, 12.0f);
+    const Nova::Vec3 feet = WorldPositionFromMatrix(scene.GetWorldMatrix(entity));
+    orbit.Target = {feet.x, feet.y + 1.2f, feet.z};
+    orbit.Distance = 7.5f;
+    orbit.PitchRadians = 0.42f;
 }
 
 const std::vector<Nova::Editor::FileFilter> kSceneFileFilters = {
@@ -181,14 +191,119 @@ const std::vector<Nova::Editor::FileFilter> kSceneFileFilters = {
 const std::vector<Nova::Editor::FileFilter> kPrefabFileFilters = {
     {"NOVA Prefab", {"json"}},
 };
+const std::vector<Nova::Editor::FileFilter> kMeshFileFilters = {
+    {"Blender / glTF / OBJ", {"gltf", "glb", "obj"}},
+};
+const std::vector<Nova::Editor::FileFilter> kAudioFileFilters = {
+    {"WAV", {"wav"}},
+};
+
+enum class WorkspaceTab { Scene, Content, Engine, Audio, Settings };
+
+void ApplyNovaEditorStyle() {
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowRounding = 10.0f;
+    style.ChildRounding = 8.0f;
+    style.FrameRounding = 6.0f;
+    style.GrabRounding = 5.0f;
+    style.TabRounding = 8.0f;
+    style.ScrollbarRounding = 10.0f;
+    style.WindowPadding = ImVec2(14.0f, 12.0f);
+    style.FramePadding = ImVec2(11.0f, 7.0f);
+    style.ItemSpacing = ImVec2(10.0f, 8.0f);
+    style.IndentSpacing = 16.0f;
+    style.WindowBorderSize = 0.0f;
+    style.FrameBorderSize = 0.0f;
+    ImVec4* c = style.Colors;
+    c[ImGuiCol_Text] = ImVec4(0.93f, 0.94f, 0.96f, 1.0f);
+    c[ImGuiCol_TextDisabled] = ImVec4(0.55f, 0.58f, 0.64f, 1.0f);
+    c[ImGuiCol_WindowBg] = ImVec4(0.09f, 0.10f, 0.13f, 0.99f);
+    c[ImGuiCol_ChildBg] = ImVec4(0.11f, 0.12f, 0.16f, 0.96f);
+    c[ImGuiCol_PopupBg] = ImVec4(0.10f, 0.11f, 0.15f, 0.98f);
+    c[ImGuiCol_Border] = ImVec4(0.20f, 0.24f, 0.30f, 0.40f);
+    c[ImGuiCol_FrameBg] = ImVec4(0.14f, 0.16f, 0.21f, 1.0f);
+    c[ImGuiCol_FrameBgHovered] = ImVec4(0.18f, 0.24f, 0.34f, 1.0f);
+    c[ImGuiCol_FrameBgActive] = ImVec4(0.22f, 0.34f, 0.48f, 1.0f);
+    c[ImGuiCol_TitleBg] = ImVec4(0.07f, 0.08f, 0.10f, 1.0f);
+    c[ImGuiCol_TitleBgActive] = ImVec4(0.10f, 0.13f, 0.18f, 1.0f);
+    c[ImGuiCol_Button] = ImVec4(0.18f, 0.36f, 0.52f, 1.0f);
+    c[ImGuiCol_ButtonHovered] = ImVec4(0.24f, 0.48f, 0.68f, 1.0f);
+    c[ImGuiCol_ButtonActive] = ImVec4(0.30f, 0.58f, 0.78f, 1.0f);
+    c[ImGuiCol_Header] = ImVec4(0.16f, 0.28f, 0.40f, 1.0f);
+    c[ImGuiCol_HeaderHovered] = ImVec4(0.22f, 0.40f, 0.56f, 1.0f);
+    c[ImGuiCol_HeaderActive] = ImVec4(0.26f, 0.48f, 0.66f, 1.0f);
+    c[ImGuiCol_Tab] = ImVec4(0.12f, 0.14f, 0.18f, 1.0f);
+    c[ImGuiCol_TabHovered] = ImVec4(0.24f, 0.42f, 0.60f, 1.0f);
+    c[ImGuiCol_TabSelected] = ImVec4(0.20f, 0.38f, 0.56f, 1.0f);
+    c[ImGuiCol_Separator] = ImVec4(0.22f, 0.26f, 0.32f, 0.45f);
+    c[ImGuiCol_CheckMark] = ImVec4(0.55f, 0.86f, 1.0f, 1.0f);
+    c[ImGuiCol_SliderGrab] = ImVec4(0.42f, 0.76f, 0.96f, 1.0f);
+    c[ImGuiCol_SliderGrabActive] = ImVec4(0.55f, 0.86f, 1.0f, 1.0f);
+    c[ImGuiCol_ScrollbarBg] = ImVec4(0.08f, 0.09f, 0.11f, 1.0f);
+    c[ImGuiCol_ScrollbarGrab] = ImVec4(0.24f, 0.28f, 0.34f, 1.0f);
+}
+
+void LoadNovaUiFont(ImGuiIO& io) {
+    const char* candidates[] = {
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+        "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+    };
+    ImFontConfig cfg;
+    cfg.OversampleH = 2;
+    cfg.OversampleV = 1;
+    cfg.PixelSnapH = true;
+    const ImWchar* ranges = io.Fonts->GetGlyphRangesCyrillic();
+    for (const char* path : candidates) {
+        if (!std::filesystem::exists(path)) {
+            continue;
+        }
+        if (io.Fonts->AddFontFromFileTTF(path, 17.0f, &cfg, ranges)) {
+            io.FontDefault = io.Fonts->Fonts.back();
+            return;
+        }
+    }
+}
+
+std::optional<std::filesystem::path> ImportFileIntoProject(
+    const Nova::ProjectDescriptor& project, const std::filesystem::path& source,
+    const std::filesystem::path& destDirRel) {
+    std::error_code ec;
+    const std::filesystem::path destDir = project.Root / destDirRel;
+    std::filesystem::create_directories(destDir, ec);
+    const std::filesystem::path dest = destDir / source.filename();
+    std::filesystem::copy_file(source, dest, std::filesystem::copy_options::overwrite_existing, ec);
+    if (ec) {
+        NOVA_LOG_ERROR("Import failed: {}", ec.message());
+        return std::nullopt;
+    }
+    return Nova::MakeProjectRelativePath(project, dest);
+}
+
+void DrawKeyBindingCombo(const char* label, Nova::EngineSettings& settings, const std::string& action) {
+    const Nova::KeyCode current = settings.Binding(action);
+    const std::string preview = Nova::KeyCodeName(current);
+    if (ImGui::BeginCombo(label, preview.c_str())) {
+        for (const std::string& name : Nova::AllBindableKeyNames()) {
+            Nova::KeyCode code = Nova::KeyCode::Unknown;
+            if (!Nova::KeyCodeFromName(name, code)) {
+                continue;
+            }
+            const bool selected = code == current;
+            if (ImGui::Selectable(name.c_str(), selected)) {
+                settings.Bindings[action] = code;
+            }
+            if (selected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+}
 
 enum class ViewportTool { Move, Rotate, Scale };
-
-struct ViewportScaleSession {
-    bool Active = false;
-    Nova::Vec3 StartScale{1.0f, 1.0f, 1.0f};
-    float StartMouseY = 0.0f;
-};
 
 enum class MoveAxis { Free, X, Y, Z };
 
@@ -274,6 +389,57 @@ void DrawTranslationGizmo(ImDrawList* drawList,
     }
 }
 
+void DrawRotationGizmo(ImDrawList* drawList,
+                       const FrameViewport& vp,
+                       const Nova::Mat4& viewProj,
+                       const Nova::Vec3& origin,
+                       float radius) {
+    auto toScreen = [&](const Nova::Vec3& world, ImVec2& out) {
+        float sx = 0.0f;
+        float sy = 0.0f;
+        if (!Nova::ProjectWorldToViewport(viewProj, world, vp.CanvasSize.x, vp.CanvasSize.y, sx,
+                                          sy)) {
+            return false;
+        }
+        out.x = vp.CanvasMin.x + sx;
+        out.y = vp.CanvasMin.y + sy;
+        return true;
+    };
+
+    const Nova::Vec3 us[3] = {{0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}};
+    const Nova::Vec3 vs[3] = {{0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}};
+    const ImU32 colors[3] = {IM_COL32(230, 80, 80, 255), IM_COL32(90, 220, 100, 255),
+                             IM_COL32(90, 140, 255, 255)};
+    constexpr int kSegs = 48;
+    for (int a = 0; a < 3; ++a) {
+        ImVec2 prev;
+        bool havePrev = false;
+        for (int i = 0; i <= kSegs; ++i) {
+            const float t = (2.0f * 3.14159265f * static_cast<float>(i)) / kSegs;
+            const Nova::Vec3 p =
+                origin + (us[a] * std::cos(t) + vs[a] * std::sin(t)) * radius;
+            ImVec2 screen;
+            if (!toScreen(p, screen)) {
+                havePrev = false;
+                continue;
+            }
+            if (havePrev) {
+                drawList->AddLine(prev, screen, colors[a], 2.5f);
+            }
+            prev = screen;
+            havePrev = true;
+        }
+    }
+}
+
+void DrawScaleGizmo(ImDrawList* drawList,
+                    const FrameViewport& vp,
+                    const Nova::Mat4& viewProj,
+                    const Nova::Vec3& origin,
+                    float axisLength) {
+    DrawTranslationGizmo(drawList, vp, viewProj, origin, axisLength);
+}
+
 enum class PendingNavigation {
     None,
     OpenProject,
@@ -335,10 +501,10 @@ void ImGuiOverlay(void* commandBuffer, void* renderEncoder, void*) {
 int main() {
     Nova::Log::Init();
     Nova::Editor::AttachEditorLogSink();
-    NOVA_LOG_INFO("NOVA3D Editor");
+    NOVA_LOG_INFO("NOVA3D");
     Nova::EnsureMacOSApplicationReady();
 
-    Nova::Window window({"NOVA3D Editor", 1440, 900});
+    Nova::Window window({"NOVA3D", 1440, 900});
     if (!window.IsValid()) {
         Nova::Log::Shutdown();
         return 1;
@@ -359,7 +525,9 @@ int main() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.IniFilename = nullptr;
+    LoadNovaUiFont(io);
     ImGui::StyleColorsDark();
+    ApplyNovaEditorStyle();
     ImGui_ImplSDL3_InitForMetal(window.GetSDLWindow());
     ImGui_ImplMetal_Init((__bridge id<MTLDevice>)renderer->GetNativeDevice());
 
@@ -371,6 +539,14 @@ int main() {
         project.Name = "NOVA3D";
         Nova::EnsureProjectLayout(project.Root);
     }
+
+    Nova::EngineSettings engineSettings = Nova::EngineSettings::Defaults();
+    Nova::LoadEngineSettings(project.Root, engineSettings);
+    Nova::AudioEngine::Get().Init();
+    Nova::AudioEngine::Get().SetEnabled(false);
+    Nova::AudioEngine::Get().SetMasterVolume(0.0f);
+    engineSettings.EnableAudio = false;
+    engineSettings.MasterVolume = 0.0f;
 
     Nova::Scene scene;
     std::filesystem::path scenePath = project.LastOpenedSceneAbsolute();
@@ -388,20 +564,25 @@ int main() {
         Nova::SaveSceneToFile(scene, scenePath);
         InitOrbitFromScene(scene, orbit);
     }
+    Nova::EnsurePlayableCombatLevel(scene);
+    if (Nova::Entity player = scene.FindEntityByName("Player"); player.IsValid()) {
+        FocusOrbitOn(scene, player, orbit);
+        selected = player;
+    }
     bool viewportHovered = false;
     FrameViewport frameViewport;
-    ViewportTool viewportTool = ViewportTool::Rotate;
+    ViewportTool viewportTool = ViewportTool::Move;
     MoveAxis moveAxis = MoveAxis::Free;
     char renameBuffer[128] = {};
-    bool showAssetsPanel = true;
-    bool showConsolePanel = true;
-    Nova::Editor::ViewportRotateSession rotateSession;
-    ViewportScaleSession scaleSession;
+    Nova::Editor::ViewportGizmoSession gizmoSession;
     bool moveHistoryPushed = false;
     Nova::Editor::EditorHistory history;
     std::vector<std::filesystem::path> projectAssetsCache;
     bool projectAssetsStale = true;
     bool isPlaying = false;
+    bool playJustStarted = false;
+    float editorPreviewOpacity = 1.0f;
+    WorkspaceTab workspaceTab = WorkspaceTab::Scene;
     Nova::Scene playScene;
     Nova::Clock clock;
     Nova::PluginRegistry plugins;
@@ -412,10 +593,21 @@ int main() {
     Nova::TextureAssetCache textureCache;
     auto startPlay = [&]() {
         playScene = Nova::CloneScene(scene);
+        Nova::EnsurePlayableCombatLevel(playScene);
         clock.Reset();
+        playJustStarted = true;
+        Nova::AudioEngine::Get().SetEnabled(false);
+        Nova::AudioEngine::Get().SetMasterVolume(0.0f);
+        window.SetCursorCaptured(true);
         isPlaying = true;
     };
-    auto stopPlay = [&]() { isPlaying = false; };
+    auto stopPlay = [&]() {
+        window.SetCursorCaptured(false);
+        isPlaying = false;
+        if (Nova::Entity player = scene.FindEntityByName("Player"); player.IsValid()) {
+            FocusOrbitOn(scene, player, orbit);
+        }
+    };
     auto invalidateProjectCaches = [&]() {
         meshCache.Clear();
         textureCache.Clear();
@@ -430,6 +622,7 @@ int main() {
     PendingNavigation pendingNav = PendingNavigation::None;
     std::filesystem::path pendingScenePath;
     bool showUnsavedPrompt = false;
+    bool autoStartedPlay = false;
     while (!window.ShouldClose()) {
         input.BeginFrame();
         window.PollEvents(input, [](const SDL_Event& event) {
@@ -440,8 +633,6 @@ int main() {
         if (input.IsKeyPressed(Nova::KeyCode::Escape)) {
             if (isPlaying) {
                 stopPlay();
-            } else {
-                break;
             }
         }
 
@@ -449,9 +640,15 @@ int main() {
         renderer->BeginFrame();
         ImGui::NewFrame();
 
+        auto tr = [&](const char* key) { return Nova::Editor::Tr(engineSettings.Language, key); };
+
         if (!broughtWindowForward) {
             window.BringToFront();
             broughtWindowForward = true;
+        }
+        if (!autoStartedPlay) {
+            autoStartedPlay = true;
+            startPlay();
         }
 
         if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal) && !isPlaying) {
@@ -462,8 +659,7 @@ int main() {
                 if (history.Undo(scene)) {
                     selected = keepName.empty() ? Nova::Entity{} : scene.FindEntityByName(keepName);
                     sceneDirty = true;
-                    rotateSession.Active = false;
-                    scaleSession.Active = false;
+                    Nova::Editor::ResetViewportGizmoSession(gizmoSession);
                 }
             }
         }
@@ -516,6 +712,8 @@ int main() {
                     Nova::ProjectDescriptor opened;
                     if (Nova::LoadProject(*folder, opened).Ok) {
                         project = opened;
+                        Nova::LoadEngineSettings(project.Root, engineSettings);
+                        Nova::AudioEngine::Get().RefreshUserSounds(project.Root);
                         invalidateProjectCaches();
                         scenePath = project.LastOpenedSceneAbsolute();
                         if (!std::filesystem::exists(scenePath)) {
@@ -539,6 +737,8 @@ int main() {
                             *folder / "Assets/Scenes/main.scene.json";
                         Nova::SaveSceneToFile(demo, mainScene);
                         Nova::LoadProject(*folder, project);
+                        Nova::LoadEngineSettings(project.Root, engineSettings);
+                        Nova::AudioEngine::Get().RefreshUserSounds(project.Root);
                         invalidateProjectCaches();
                         scenePath = mainScene;
                         LoadSceneFromDisk(scenePath, scene, project, selected, orbit, sceneDirty);
@@ -572,22 +772,22 @@ int main() {
         }
         if (ImGui::BeginPopupModal("Unsaved Changes", &showUnsavedPrompt,
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::TextUnformatted("Save changes before continuing?");
-            if (ImGui::Button("Save", ImVec2(120, 0))) {
+            ImGui::TextUnformatted(tr("unsaved"));
+            if (ImGui::Button(tr("save"), ImVec2(120, 0))) {
                 SaveSceneToDisk(scene, scenePath, project, sceneDirty);
                 showUnsavedPrompt = false;
                 runPendingNavigation();
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Discard", ImVec2(120, 0))) {
+            if (ImGui::Button(tr("discard"), ImVec2(120, 0))) {
                 sceneDirty = false;
                 showUnsavedPrompt = false;
                 runPendingNavigation();
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            if (ImGui::Button(tr("cancel"), ImVec2(120, 0))) {
                 pendingNav = PendingNavigation::None;
                 pendingScenePath.clear();
                 showUnsavedPrompt = false;
@@ -607,18 +807,18 @@ int main() {
         };
 
         if (ImGui::BeginMainMenuBar()) {
-            if (ImGui::BeginMenu("File")) {
-                if (ImGui::MenuItem("Open Project...")) {
+            if (ImGui::BeginMenu(tr("file"))) {
+                if (ImGui::MenuItem(tr("open_project"))) {
                     requestNavigation(PendingNavigation::OpenProject);
                 }
-                if (ImGui::MenuItem("New Project...")) {
+                if (ImGui::MenuItem(tr("new_project"))) {
                     requestNavigation(PendingNavigation::NewProject);
                 }
                 ImGui::Separator();
-                if (ImGui::MenuItem("Open Scene...")) {
+                if (ImGui::MenuItem(tr("open_scene"))) {
                     requestNavigation(PendingNavigation::OpenScene);
                 }
-                if (ImGui::BeginMenu("Scenes in Project")) {
+                if (ImGui::BeginMenu(tr("scenes_in_project"))) {
                     for (const std::filesystem::path& rel : Nova::ListProjectScenes(project)) {
                         const std::string label = rel.filename().string();
                         const bool isCurrent =
@@ -642,10 +842,10 @@ int main() {
                     }
                     ImGui::EndMenu();
                 }
-                if (ImGui::MenuItem("Save Scene", "Cmd+S")) {
+                if (ImGui::MenuItem(tr("save_scene"), "Cmd+S")) {
                     SaveSceneToDisk(scene, scenePath, project, sceneDirty);
                 }
-                if (ImGui::MenuItem("Save Scene As...")) {
+                if (ImGui::MenuItem(tr("save_scene_as"))) {
                     std::filesystem::path defaultPath = project.ScenesDirectory() / "scene.json";
                     if (!scenePath.empty()) {
                         defaultPath = scenePath;
@@ -656,10 +856,10 @@ int main() {
                         SaveSceneToDisk(scene, scenePath, project, sceneDirty);
                     }
                 }
-                if (ImGui::MenuItem("Reload")) {
+                if (ImGui::MenuItem(tr("reload"))) {
                     LoadSceneFromDisk(scenePath, scene, project, selected, orbit, sceneDirty);
                 }
-                if (ImGui::MenuItem("New Empty Scene")) {
+                if (ImGui::MenuItem(tr("new_empty_scene"))) {
                     if (sceneDirty) {
                         pendingNav = PendingNavigation::None;
                         showUnsavedPrompt = true;
@@ -671,7 +871,7 @@ int main() {
                     }
                 }
                 ImGui::Separator();
-                if (ImGui::MenuItem("Save Prefab...", nullptr,
+                if (ImGui::MenuItem(tr("save_prefab"), nullptr,
                                     false, selected.IsValid() && scene.IsAlive(selected))) {
                     const std::filesystem::path defaultPath =
                         project.PrefabsDirectory() /
@@ -688,7 +888,7 @@ int main() {
                         }
                     }
                 }
-                if (ImGui::BeginMenu("Prefabs in Project")) {
+                if (ImGui::BeginMenu(tr("prefabs_in_project"))) {
                     const auto prefabs = Nova::ListProjectPrefabs(project);
                     if (prefabs.empty()) {
                         ImGui::MenuItem("(none)", nullptr, false, false);
@@ -709,7 +909,7 @@ int main() {
                     }
                     ImGui::EndMenu();
                 }
-                if (ImGui::MenuItem("Instantiate Prefab...")) {
+                if (ImGui::MenuItem(tr("instantiate_prefab"))) {
                     if (auto file = Nova::Editor::ShowOpenFileDialog("Instantiate Prefab",
                                                                      kPrefabFileFilters)) {
                         history.Push(scene);
@@ -726,15 +926,81 @@ int main() {
                 }
                 ImGui::EndMenu();
             }
-            if (ImGui::BeginMenu("Play")) {
-                if (!isPlaying && ImGui::MenuItem("Play Scene", "F5")) {
+            if (ImGui::BeginMenu(tr("game"))) {
+                if (ImGui::MenuItem(tr("new_playable"))) {
+                    history.Push(scene);
+                    scene = Nova::Scene::CreatePlayableLevel();
+                    selected = scene.FindEntityByName("Player");
+                    sceneDirty = true;
+                    InitOrbitFromScene(scene, orbit);
+                    if (selected.IsValid()) {
+                        FocusOrbitOn(scene, selected, orbit);
+                        orbit.Distance = 7.0f;
+                    }
+                }
+                if (ImGui::MenuItem(tr("create_player"))) {
+                    history.Push(scene);
+                    selected = Nova::SpawnPlayer(scene);
+                    Nova::PlaceOnGround(scene, selected);
+                    FocusOrbitOn(scene, selected, orbit);
+                    orbit.Distance = 6.5f;
+                    sceneDirty = true;
+                }
+                if (ImGui::MenuItem(tr("import_character"))) {
+                    if (auto file = Nova::Editor::ShowOpenFileDialog(tr("import_character"),
+                                                                     kMeshFileFilters)) {
+                        if (auto rel = ImportFileIntoProject(project, *file, "Assets/Characters")) {
+                            history.Push(scene);
+                            selected = Nova::SpawnPlayer(scene, rel->generic_string());
+                            Nova::PlaceOnGround(scene, selected);
+                            FocusOrbitOn(scene, selected, orbit);
+                            orbit.Distance = 6.5f;
+                            sceneDirty = true;
+                            invalidateProjectCaches();
+                        }
+                    }
+                }
+                if (ImGui::MenuItem(tr("import_item"))) {
+                    if (auto file = Nova::Editor::ShowOpenFileDialog(tr("import_item"),
+                                                                     kMeshFileFilters)) {
+                        if (auto rel = ImportFileIntoProject(project, *file, "Assets/Items")) {
+                            history.Push(scene);
+                            selected = Nova::SpawnImportedMesh(scene,
+                                UniqueEntityName(scene, "Item"), rel->generic_string());
+                            Nova::PlaceOnGround(scene, selected);
+                            FocusOrbitOn(scene, selected, orbit);
+                            sceneDirty = true;
+                            invalidateProjectCaches();
+                        }
+                    }
+                }
+                if (ImGui::MenuItem(tr("import_map"))) {
+                    if (auto file = Nova::Editor::ShowOpenFileDialog(tr("import_map"),
+                                                                     kMeshFileFilters)) {
+                        if (auto rel =
+                                ImportFileIntoProject(project, *file, "Assets/Environment")) {
+                            history.Push(scene);
+                            selected = Nova::SpawnImportedMesh(scene,
+                                UniqueEntityName(scene, "Map"), rel->generic_string());
+                            Nova::PlaceOnGround(scene, selected);
+                            FocusOrbitOn(scene, selected, orbit);
+                            orbit.Distance = 12.0f;
+                            sceneDirty = true;
+                            invalidateProjectCaches();
+                        }
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu(tr("play_menu"))) {
+                if (!isPlaying && ImGui::MenuItem(tr("play_scene"), "F5")) {
                     startPlay();
                 }
-                if (isPlaying && ImGui::MenuItem("Stop", "Esc")) {
+                if (isPlaying && ImGui::MenuItem(tr("stop"), "Esc")) {
                     stopPlay();
                 }
                 ImGui::Separator();
-                if (ImGui::MenuItem("Run Standalone Game", "Cmd+Shift+G")) {
+                if (ImGui::MenuItem(tr("run_standalone"), "Cmd+Shift+G")) {
                     if (sceneDirty) {
                         SaveSceneToDisk(scene, scenePath, project, sceneDirty);
                     }
@@ -742,23 +1008,18 @@ int main() {
                 }
                 ImGui::EndMenu();
             }
-            if (ImGui::BeginMenu("View")) {
-                ImGui::MenuItem("Assets", nullptr, &showAssetsPanel);
-                ImGui::MenuItem("Console", nullptr, &showConsolePanel);
-                ImGui::EndMenu();
-            }
             ImGui::Separator();
             if (isPlaying) {
-                if (ImGui::Button("Stop")) {
+                if (ImGui::Button(tr("stop"))) {
                     stopPlay();
                 }
-            } else if (ImGui::Button("Play")) {
+            } else if (ImGui::Button(tr("play"))) {
                 startPlay();
             }
             ImGui::Separator();
             ImGui::Text(" | %s", project.Name.c_str());
             if (isPlaying) {
-                ImGui::Text(" | PLAY");
+                ImGui::Text(" | PLAY  WASD jump Space  mouse look");
             } else if (sceneDirty) {
                 ImGui::Text(" *");
             }
@@ -767,42 +1028,51 @@ int main() {
 
         Nova::Scene& activeScene = isPlaying ? playScene : scene;
 
-        if (isPlaying) {
-            const ImGuiViewport* vp = ImGui::GetMainViewport();
-            ImGui::SetNextWindowPos(vp->WorkPos);
-            ImGui::SetNextWindowSize(vp->WorkSize);
-            ImGui::Begin("##PlayOverlay", nullptr,
-                         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
-                             ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoNav);
-            ImGui::End();
-
-            ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + 12.0f, vp->WorkPos.y + 36.0f));
-            ImGui::Begin("PlayMode", nullptr,
-                         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration);
-            ImGui::TextUnformatted("Play Mode — Esc to stop");
-            if (ImGui::Button("Stop")) {
-                stopPlay();
-            }
-            ImGui::End();
-        }
-
         if (!isPlaying &&
             ImGui::Shortcut(ImGuiKey_F5, ImGuiInputFlags_RouteGlobal | ImGuiInputFlags_RouteOverFocused)) {
             startPlay();
         }
 
         if (isPlaying) {
-            if (input.IsMouseButtonDown(Nova::MouseButton::Right)) {
-                uint32_t fbW = 0, fbH = 0;
-                window.GetFramebufferSize(fbW, fbH);
-                const float rpp = ViewportRotationRadiansPerPixel(static_cast<float>(fbH));
-                OrbitFromMouseDelta(orbit, input.GetMouseDeltaX(), input.GetMouseDeltaY(), rpp);
+            Nova::TickScene(playScene, clock.DeltaSeconds(), &input, &engineSettings, project.Root,
+                            playJustStarted);
+            playJustStarted = false;
+            if (!Nova::SceneHasFollowCamera(playScene)) {
+                if (input.IsMouseButtonDown(Nova::MouseButton::Right)) {
+                    uint32_t fbW = 0, fbH = 0;
+                    window.GetFramebufferSize(fbW, fbH);
+                    const float rpp = ViewportRotationRadiansPerPixel(static_cast<float>(fbH));
+                    OrbitFromMouseDelta(orbit, input.GetMouseDeltaX(), input.GetMouseDeltaY(), rpp);
+                }
+                if (input.GetScrollY() != 0.0f) {
+                    orbit.Distance =
+                        Nova::Clamp(orbit.Distance - input.GetScrollY() * 0.25f, 0.8f, 30.0f);
+                }
+                SyncOrbitToScene(activeScene, orbit);
             }
-            if (input.GetScrollY() != 0.0f) {
-                orbit.Distance =
-                    Nova::Clamp(orbit.Distance - input.GetScrollY() * 0.25f, 0.8f, 30.0f);
+            const Nova::GameplayHudSnapshot hud = Nova::QueryGameplayHud(playScene);
+            ImGui::SetNextWindowPos(ImVec2(18.0f, 18.0f), ImGuiCond_Always);
+            ImGui::SetNextWindowBgAlpha(0.72f);
+            ImGui::Begin("##game_hud", nullptr,
+                         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove |
+                             ImGuiWindowFlags_NoCollapse);
+            ImGui::TextUnformatted("Рыцарь");
+            const float pmax = hud.PlayerMaxHealth > 1.0f ? hud.PlayerMaxHealth : 1.0f;
+            ImGui::ProgressBar(hud.PlayerHealth / pmax, ImVec2(220.0f, 16.0f));
+            ImGui::Text("HP  %.0f / %.0f", hud.PlayerHealth, hud.PlayerMaxHealth);
+            ImGui::Text("Бандиты: %d", hud.AliveEnemies);
+            if (hud.TargetMaxHealth > 0.0f) {
+                ImGui::Text("Цель HP  %.0f / %.0f", hud.TargetHealth, hud.TargetMaxHealth);
             }
-            SyncOrbitToScene(activeScene, orbit);
+            ImGui::Separator();
+            ImGui::TextUnformatted("Мышь — обзор   WASD — ходьба   F/ЛКМ — удар");
+            if (!hud.PlayerAlive) {
+                ImGui::TextUnformatted("Падение. Esc — стоп.");
+            } else if (hud.AliveEnemies == 0) {
+                ImGui::TextUnformatted("Деревня зачищена.");
+            }
+            ImGui::End();
             Nova::RenderViewport fullVp;
             fullVp.Active = false;
             renderer->SetRenderViewport(fullVp);
@@ -810,8 +1080,8 @@ int main() {
             window.GetFramebufferSize(fbW, fbH);
             const float aspect = fbH > 0 ? static_cast<float>(fbW) / static_cast<float>(fbH)
                                          : 16.0f / 9.0f;
-            Nova::TickScene(playScene, clock.DeltaSeconds());
-            Nova::RenderScene(activeScene, *renderer, aspect, project.Root, meshCache, textureCache);
+            Nova::RenderScene(activeScene, *renderer, aspect, project.Root, meshCache, textureCache,
+                              1.0f);
             ImGui::Render();
             renderer->BeginDrawing();
             renderer->EndFrame();
@@ -819,14 +1089,97 @@ int main() {
         }
 
         const ImGuiViewport* mainViewport = ImGui::GetMainViewport();
-        const ImVec2 workPos = mainViewport->WorkPos;
-        const ImVec2 workSize = mainViewport->WorkSize;
-        constexpr float kSidePanelWidth = 280.0f;
+        const ImVec2 fullPos = mainViewport->WorkPos;
+        const ImVec2 fullSize = mainViewport->WorkSize;
+        constexpr float kChromeH = 56.0f;
 
+        ImGui::SetNextWindowPos(fullPos);
+        ImGui::SetNextWindowSize(ImVec2(fullSize.x, kChromeH));
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.07f, 0.08f, 0.11f, 1.0f));
+        ImGui::Begin("##nova_chrome", nullptr,
+                     ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                         ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse |
+                         ImGuiWindowFlags_NoBringToFrontOnFocus);
+        {
+            const ImVec2 emblem = ImGui::GetCursorScreenPos();
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            dl->AddRectFilled(emblem, ImVec2(emblem.x + 38.0f, emblem.y + 34.0f),
+                              IM_COL32(36, 132, 214, 255), 9.0f);
+            dl->AddCircleFilled(ImVec2(emblem.x + 19.0f, emblem.y + 17.0f), 7.5f,
+                                IM_COL32(250, 252, 255, 255));
+            dl->AddCircle(ImVec2(emblem.x + 19.0f, emblem.y + 17.0f), 11.0f,
+                          IM_COL32(180, 220, 255, 180), 0, 1.6f);
+            ImGui::Dummy(ImVec2(46.0f, 34.0f));
+            ImGui::SameLine();
+            ImGui::BeginGroup();
+            ImGui::Dummy(ImVec2(0.0f, 2.0f));
+            ImGui::TextUnformatted("NOVA3D");
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.62f, 0.68f, 0.76f, 1.0f));
+            ImGui::TextUnformatted(tr("brand_sub"));
+            ImGui::PopStyleColor();
+            ImGui::EndGroup();
+            ImGui::SameLine(0.0f, 28.0f);
+            auto workspaceButton = [&](const char* key, WorkspaceTab tab) {
+                const bool on = workspaceTab == tab;
+                if (on) {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.22f, 0.48f, 0.68f, 1.0f));
+                } else {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.13f, 0.15f, 0.20f, 1.0f));
+                }
+                if (ImGui::Button(tr(key), ImVec2(96.0f, 34.0f))) {
+                    workspaceTab = tab;
+                }
+                ImGui::PopStyleColor();
+            };
+            workspaceButton("tab_scene", WorkspaceTab::Scene);
+            ImGui::SameLine();
+            workspaceButton("tab_editor", WorkspaceTab::Content);
+            ImGui::SameLine();
+            workspaceButton("tab_engine", WorkspaceTab::Engine);
+            ImGui::SameLine();
+            workspaceButton("tab_audio", WorkspaceTab::Audio);
+            ImGui::SameLine();
+            workspaceButton("tab_settings", WorkspaceTab::Settings);
+        }
+        ImGui::End();
+        ImGui::PopStyleColor();
+
+        const ImVec2 workPos = ImVec2(fullPos.x, fullPos.y + kChromeH);
+        const ImVec2 workSize = ImVec2(fullSize.x, std::max(80.0f, fullSize.y - kChromeH));
+        constexpr float kSidePanelWidth = 280.0f;
+        constexpr float kBottomPanelHeight = 168.0f;
+        const float upperH = std::max(120.0f, workSize.y - kBottomPanelHeight);
+
+        if (workspaceTab == WorkspaceTab::Scene) {
         ImGui::SetNextWindowPos(workPos);
-        ImGui::SetNextWindowSize(ImVec2(kSidePanelWidth, workSize.y));
-        ImGui::Begin("Hierarchy", nullptr,
+        ImGui::SetNextWindowSize(ImVec2(kSidePanelWidth, upperH));
+        ImGui::Begin(tr("hierarchy"), nullptr,
                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+            ImGui::TextDisabled("%s", tr("axes"));
+            if (ImGui::Button("Character")) {
+                history.Push(scene);
+                selected = Nova::SpawnPlayer(scene);
+                Nova::PlaceOnGround(scene, selected);
+                FocusOrbitOn(scene, selected, orbit);
+                orbit.Distance = 6.5f;
+                sceneDirty = true;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Ground")) {
+                history.Push(scene);
+                selected = Nova::SpawnGround(scene);
+                FocusOrbitOn(scene, selected, orbit);
+                sceneDirty = true;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Map")) {
+                history.Push(scene);
+                selected = Nova::SpawnSimpleMap(scene);
+                FocusOrbitOn(scene, selected, orbit);
+                orbit.Distance = 14.0f;
+                sceneDirty = true;
+            }
+            ImGui::SameLine();
             if (ImGui::Button("Empty")) {
                 history.Push(scene);
                 Nova::Entity empty = scene.CreateEntity(UniqueEntityName(scene, "Entity").c_str());
@@ -914,6 +1267,13 @@ int main() {
             scene.ForEachEntity([&](Nova::Entity entity) {
                 const bool isSelected = selected.IsValid() && entity.Id == selected.Id;
                 const int depth = EntityHierarchyDepth(scene, entity);
+                ImGui::PushID(static_cast<int>(entity.Id));
+                bool showAxes = scene.GetShowAxes(entity);
+                if (ImGui::Checkbox("##axes", &showAxes)) {
+                    scene.SetShowAxes(entity, showAxes);
+                    sceneDirty = true;
+                }
+                ImGui::SameLine();
                 std::string label(depth * 2, ' ');
                 label += scene.GetName(entity);
                 if (scene.HasCamera(entity) && scene.GetCamera(entity).IsPrimary) {
@@ -928,6 +1288,9 @@ int main() {
                 if (scene.HasMeshRenderer(entity)) {
                     label += " [Mesh]";
                 }
+                if (scene.HasPlayerController(entity)) {
+                    label += " [Player]";
+                }
                 if (scene.HasRotator(entity)) {
                     label += " [Rotator]";
                 }
@@ -935,12 +1298,13 @@ int main() {
                     selected = entity;
                     renameBuffer[0] = '\0';
                 }
+                ImGui::PopID();
             });
         ImGui::End();
 
         ImGui::SetNextWindowPos(ImVec2(workPos.x + workSize.x - kSidePanelWidth, workPos.y));
-        ImGui::SetNextWindowSize(ImVec2(kSidePanelWidth, workSize.y));
-        ImGui::Begin("Inspector", nullptr,
+        ImGui::SetNextWindowSize(ImVec2(kSidePanelWidth, upperH));
+        ImGui::Begin(tr("inspector"), nullptr,
                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
             ImGui::TextUnformatted("Scene Environment");
             if (ImGui::ColorEdit3("Clear Color", &scene.Settings().ClearColor.x)) {
@@ -957,13 +1321,18 @@ int main() {
                     scene.SetName(selected, renameBuffer);
                     sceneDirty = true;
                 }
+                bool showAxes = scene.GetShowAxes(selected);
+                if (ImGui::Checkbox(tr("axes"), &showAxes)) {
+                    scene.SetShowAxes(selected, showAxes);
+                    sceneDirty = true;
+                }
                 ImGui::Separator();
                 ImGui::TextUnformatted("Transform");
                 Nova::Transform& xform = scene.GetTransform(selected);
                 if (ImGui::DragFloat3("Position", &xform.Position.x, 0.02f)) {
                     sceneDirty = true;
                 }
-                if (rotateSession.Active) {
+                if (gizmoSession.Active && viewportTool == ViewportTool::Rotate) {
                     ImGui::TextUnformatted("Rotation: (viewport drag)");
                 } else {
                     Nova::Vec3 eulerDeg = xform.Rotation.ToEulerYXZRadians();
@@ -1025,6 +1394,9 @@ int main() {
                     if (ImGui::ColorEdit3("Albedo", &mesh.AlbedoColor.x)) {
                         sceneDirty = true;
                     }
+                    if (ImGui::SliderFloat(tr("opacity"), &mesh.Opacity, 0.05f, 1.0f)) {
+                        sceneDirty = true;
+                    }
                     char texBuf[256] = {};
                     std::snprintf(texBuf, sizeof(texBuf), "%s", mesh.AlbedoTexturePath.c_str());
                     if (ImGui::InputText("Albedo PNG", texBuf, sizeof(texBuf))) {
@@ -1036,6 +1408,42 @@ int main() {
                     }
                 } else if (ImGui::Button("Add Mesh Renderer")) {
                     scene.AddMeshRenderer(selected);
+                    sceneDirty = true;
+                }
+                if (scene.HasCharacterController(selected)) {
+                    Nova::CharacterControllerComponent& character =
+                        scene.GetCharacterController(selected);
+                    ImGui::TextUnformatted("Character Controller");
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Remove##char")) {
+                        scene.RemoveCharacterController(selected);
+                        sceneDirty = true;
+                    }
+                    if (ImGui::DragFloat("Move Speed", &character.MoveSpeed, 0.05f, 0.5f, 20.0f)) {
+                        sceneDirty = true;
+                    }
+                    if (ImGui::DragFloat("Jump", &character.JumpSpeed, 0.05f, 0.0f, 20.0f)) {
+                        sceneDirty = true;
+                    }
+                } else if (ImGui::Button("Add Character Controller")) {
+                    scene.AddCharacterController(selected);
+                    sceneDirty = true;
+                }
+                if (scene.HasPlayerController(selected)) {
+                    Nova::PlayerControllerComponent& player = scene.GetPlayerController(selected);
+                    ImGui::TextUnformatted("Player (WASD in Play)");
+                    if (ImGui::Checkbox("Enabled", &player.Enabled)) {
+                        sceneDirty = true;
+                    }
+                    if (ImGui::SmallButton("Remove Player")) {
+                        scene.RemovePlayerController(selected);
+                        sceneDirty = true;
+                    }
+                } else if (ImGui::Button("Make Playable Character")) {
+                    if (!scene.HasCharacterController(selected)) {
+                        scene.AddCharacterController(selected);
+                    }
+                    scene.AddPlayerController(selected);
                     sceneDirty = true;
                 }
                 if (scene.HasRotator(selected)) {
@@ -1135,68 +1543,147 @@ int main() {
                     scene.AddPointLight(selected);
                     sceneDirty = true;
                 }
+                if (scene.HasScript(selected)) {
+                    Nova::ScriptComponent& script = scene.GetScript(selected);
+                    ImGui::TextUnformatted(tr("script"));
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Remove##script")) {
+                        scene.RemoveScript(selected);
+                        sceneDirty = true;
+                    }
+                    char pathBuf[256] = {};
+                    std::snprintf(pathBuf, sizeof(pathBuf), "%s", script.AssetPath.c_str());
+                    if (ImGui::InputText("Script file", pathBuf, sizeof(pathBuf))) {
+                        script.AssetPath = pathBuf;
+                        sceneDirty = true;
+                    }
+                    ImGui::TextWrapped("%s", tr("logic_help"));
+                } else if (ImGui::Button("Add NovaScript")) {
+                    Nova::ScriptComponent script;
+                    script.Source = Nova::DefaultPlayerScript();
+                    scene.AddScript(selected, script);
+                    sceneDirty = true;
+                }
+                if (scene.HasAudioSource(selected)) {
+                    Nova::AudioSourceComponent& audio = scene.GetAudioSource(selected);
+                    ImGui::TextUnformatted("Audio Source");
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Remove##asrc")) {
+                        scene.RemoveAudioSource(selected);
+                        sceneDirty = true;
+                    }
+                    char soundBuf[128] = {};
+                    std::snprintf(soundBuf, sizeof(soundBuf), "%s", audio.SoundId.c_str());
+                    if (ImGui::InputText("Sound Id", soundBuf, sizeof(soundBuf))) {
+                        audio.SoundId = soundBuf;
+                        sceneDirty = true;
+                    }
+                    if (ImGui::Checkbox("Play On Start", &audio.PlayOnStart)) {
+                        sceneDirty = true;
+                    }
+                    if (ImGui::SmallButton(tr("preview"))) {
+                        Nova::AudioEngine::Get().Play(audio.SoundId);
+                    }
+                } else if (ImGui::Button("Add Audio Source")) {
+                    scene.AddAudioSource(selected);
+                    sceneDirty = true;
+                }
             } else {
                 ImGui::TextUnformatted("Select an entity in Hierarchy.");
             }
         ImGui::End();
 
-        if (showAssetsPanel) {
-            ImGui::SetNextWindowSize(ImVec2(420.0f, 260.0f), ImGuiCond_FirstUseEver);
-            if (ImGui::Begin("Assets", &showAssetsPanel)) {
-                ImGui::TextUnformatted("Click to assign to selected Mesh (if any).");
-                refreshProjectAssets();
-                for (const std::filesystem::path& rel : projectAssetsCache) {
-                    const std::string path = rel.generic_string();
-                    if (ImGui::Selectable(path.c_str())) {
-                        if (selected.IsValid() && scene.IsAlive(selected) &&
-                            scene.HasMeshRenderer(selected)) {
-                            Nova::MeshRendererComponent& mesh = scene.GetMeshRenderer(selected);
+        ImGui::SetNextWindowPos(ImVec2(workPos.x, workPos.y + upperH));
+        ImGui::SetNextWindowSize(ImVec2(workSize.x, kBottomPanelHeight));
+        ImGui::Begin("Project", nullptr,
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+            if (ImGui::BeginTabBar("##project_tabs")) {
+                if (ImGui::BeginTabItem("Assets")) {
+                    ImGui::TextUnformatted(tr("place_in_world"));
+                    refreshProjectAssets();
+                    for (const std::filesystem::path& rel : projectAssetsCache) {
+                        const std::string path = rel.generic_string();
+                        if (ImGui::Selectable(path.c_str())) {
                             const std::string ext = rel.extension().string();
-                            if (ext == ".png") {
-                                mesh.AlbedoTexturePath = path;
-                                mesh.UseAlbedoTexture = true;
-                            } else {
-                                mesh.AssetPath = path;
-                                const Nova::AssetLoadResult loaded =
-                                    Nova::LoadMeshAsset(project.Root / rel);
-                                if (loaded.Ok && loaded.HasMaterialBaseColor) {
-                                    mesh.AlbedoColor = loaded.MaterialBaseColor;
+                            if (ext == ".wav") {
+                                Nova::AudioEngine::Get().SetEnabled(false);
+                                if (selected.IsValid() && scene.IsAlive(selected)) {
+                                    if (!scene.HasAudioSource(selected)) {
+                                        scene.AddAudioSource(selected);
+                                    }
+                                    scene.GetAudioSource(selected).SoundId = rel.stem().string();
+                                    sceneDirty = true;
                                 }
+                            } else if (ext == ".ns") {
+                                if (selected.IsValid() && scene.IsAlive(selected)) {
+                                    if (!scene.HasScript(selected)) {
+                                        scene.AddScript(selected);
+                                    }
+                                    scene.GetScript(selected).AssetPath = path;
+                                    const Nova::FileIOResult read =
+                                        Nova::ReadTextFile(project.Root / rel);
+                                    if (read.Ok) {
+                                        scene.GetScript(selected).Source = read.Text;
+                                    }
+                                    sceneDirty = true;
+                                }
+                            } else if (ext == ".png") {
+                                if (selected.IsValid() && scene.IsAlive(selected) &&
+                                    scene.HasMeshRenderer(selected)) {
+                                    Nova::MeshRendererComponent& mesh =
+                                        scene.GetMeshRenderer(selected);
+                                    mesh.AlbedoTexturePath = path;
+                                    mesh.UseAlbedoTexture = true;
+                                    sceneDirty = true;
+                                }
+                            } else if (ext == ".obj" || ext == ".gltf" || ext == ".glb") {
+                                history.Push(scene);
+                                const bool asCharacter =
+                                    path.find("Characters") != std::string::npos ||
+                                    path.find("knight") != std::string::npos;
+                                if (asCharacter) {
+                                    selected = Nova::SpawnPlayer(scene, path);
+                                } else {
+                                    const char* base =
+                                        path.find("Environment") != std::string::npos ? "Map"
+                                                                                      : "Item";
+                                    selected = Nova::SpawnImportedMesh(
+                                        scene, UniqueEntityName(scene, base), path);
+                                }
+                                Nova::PlaceOnGround(scene, selected);
+                                FocusOrbitOn(scene, selected, orbit);
+                                sceneDirty = true;
                             }
-                            sceneDirty = true;
                         }
                     }
+                    ImGui::EndTabItem();
                 }
+                if (ImGui::BeginTabItem("Console")) {
+                    if (ImGui::Button("Clear")) {
+                        Nova::Editor::ClearEditorLog();
+                    }
+                    ImGui::Separator();
+                    ImGui::BeginChild("##log", ImVec2(0.0f, 0.0f), ImGuiChildFlags_None,
+                                      ImGuiWindowFlags_HorizontalScrollbar);
+                    const std::vector<std::string> lines = Nova::Editor::CopyEditorLogLines();
+                    for (const std::string& line : lines) {
+                        ImGui::TextUnformatted(line.c_str());
+                    }
+                    if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 8.0f) {
+                        ImGui::SetScrollHereY(1.0f);
+                    }
+                    ImGui::EndChild();
+                    ImGui::EndTabItem();
+                }
+                ImGui::EndTabBar();
             }
-            ImGui::End();
-        }
-
-        if (showConsolePanel) {
-            ImGui::SetNextWindowSize(ImVec2(520.0f, 180.0f), ImGuiCond_FirstUseEver);
-            if (ImGui::Begin("Console", &showConsolePanel)) {
-                if (ImGui::Button("Clear")) {
-                    Nova::Editor::ClearEditorLog();
-                }
-                ImGui::Separator();
-                ImGui::BeginChild("##log", ImVec2(0.0f, 0.0f), ImGuiChildFlags_None,
-                                  ImGuiWindowFlags_HorizontalScrollbar);
-                const std::vector<std::string> lines = Nova::Editor::CopyEditorLogLines();
-                for (const std::string& line : lines) {
-                    ImGui::TextUnformatted(line.c_str());
-                }
-                if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 8.0f) {
-                    ImGui::SetScrollHereY(1.0f);
-                }
-                ImGui::EndChild();
-            }
-            ImGui::End();
-        }
+        ImGui::End();
 
         const float centerX = workPos.x + kSidePanelWidth;
         const float centerW = workSize.x - kSidePanelWidth * 2.0f;
         ImGui::SetNextWindowPos(ImVec2(centerX, workPos.y));
-        ImGui::SetNextWindowSize(ImVec2(centerW, workSize.y));
-        ImGui::Begin("Viewport", nullptr,
+        ImGui::SetNextWindowSize(ImVec2(centerW, upperH));
+        ImGui::Begin(tr("viewport"), nullptr,
                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
             ImGui::Text("FPS: %.0f", ImGui::GetIO().Framerate);
             if (ImGui::RadioButton("Move (M)", viewportTool == ViewportTool::Move)) {
@@ -1222,8 +1709,8 @@ int main() {
                 ImGui::SameLine();
                 ImGui::TextUnformatted("Shift = snap 0.25");
             }
-            ImGui::TextUnformatted(
-                "LMB rotate: screen tumble (any face, any click) | RMB camera | S scale | Cmd+Z");
+            ImGui::TextUnformatted(tr("viewport_hint"));
+            ImGui::SliderFloat(tr("editor_opacity"), &editorPreviewOpacity, 0.15f, 1.0f);
             const std::string relScene =
                 Nova::MakeProjectRelativePath(project, scenePath).generic_string();
             ImGui::Text("Project: %s", project.Root.filename().string().c_str());
@@ -1274,67 +1761,96 @@ int main() {
             const float mouseLocalX = mousePos.x - frameViewport.CanvasMin.x;
             const float mouseLocalY = mousePos.y - frameViewport.CanvasMin.y;
 
+            Nova::Vec3 gizmoOrigin{};
+            float gizmoSize = 0.75f;
+            if (selected.IsValid() && scene.IsAlive(selected)) {
+                gizmoOrigin = WorldPositionFromMatrix(scene.GetWorldMatrix(selected));
+                gizmoSize = std::max(0.35f, scene.GetTransform(selected).Scale.x * 0.75f);
+            }
+
+            const bool showAxes = selected.IsValid() && scene.IsAlive(selected) &&
+                                  scene.GetShowAxes(selected) && !scene.HasCamera(selected);
+
             if (hasCamInPanel && ImGui::IsItemActivated() &&
                 ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                Nova::Ray pickRay;
-                if (Nova::ViewportPointToRay(viewportCameraInPanel, mouseLocalX, mouseLocalY,
-                                             frameViewport.CanvasSize.x,
-                                             frameViewport.CanvasSize.y, pickRay)) {
-                    const Nova::Entity hit = Nova::PickSceneMesh(scene, pickRay);
-                    if (hit.IsValid()) {
-                        selected = hit;
-                        renameBuffer[0] = '\0';
-                    }
-                }
-            }
-
-            if (selected.IsValid() && scene.IsAlive(selected) && !scene.HasCamera(selected) &&
-                hasCamInPanel && frameViewport.CanvasActive) {
-                Nova::Transform& xform = scene.GetTransform(selected);
-                if (viewportTool == ViewportTool::Rotate) {
-                    if (!rotateSession.Active && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                        history.Push(scene);
-                        Nova::Editor::BeginViewportRotateSession(
-                            rotateSession, frameViewport.CanvasSize.y);
-                    } else if (rotateSession.Active) {
-                        const Nova::Quat before = xform.Rotation;
-                        Nova::Editor::ApplyViewportRotateDrag(
-                            rotateSession, xform, ImGui::GetIO().MouseDelta.x,
-                            ImGui::GetIO().MouseDelta.y, viewportCameraInPanel);
-                        if (before.Dot(xform.Rotation) < 0.99999f) {
-                            sceneDirty = true;
+                const Nova::Mat4 vp = viewportCameraInPanel.GetViewProjectionMatrix();
+                Nova::Editor::GizmoAxis picked = Nova::Editor::GizmoAxis::None;
+                if (showAxes) {
+                    if (viewportTool == ViewportTool::Rotate) {
+                        picked = Nova::Editor::PickRotationAxis(
+                            vp, gizmoOrigin, gizmoSize, mouseLocalX, mouseLocalY,
+                            frameViewport.CanvasSize.x, frameViewport.CanvasSize.y, 22.0f);
+                    } else if (viewportTool == ViewportTool::Move ||
+                               viewportTool == ViewportTool::Scale) {
+                        picked = Nova::Editor::PickMoveAxis(
+                            vp, gizmoOrigin, gizmoSize, mouseLocalX, mouseLocalY,
+                            frameViewport.CanvasSize.x, frameViewport.CanvasSize.y);
+                        if (picked == Nova::Editor::GizmoAxis::None &&
+                            viewportTool == ViewportTool::Scale) {
+                            picked = Nova::Editor::GizmoAxis::Screen;
                         }
                     }
-                } else if (viewportTool == ViewportTool::Scale) {
-                    if (ImGui::IsItemActivated()) {
-                        history.Push(scene);
-                        scaleSession.Active = true;
-                        scaleSession.StartScale = xform.Scale;
-                        scaleSession.StartMouseY = mouseLocalY;
-                    }
-                    if (scaleSession.Active) {
-                        const float factor =
-                            std::max(0.05f, 1.0f + (scaleSession.StartMouseY - mouseLocalY) * 0.01f);
-                        xform.Scale = scaleSession.StartScale * factor;
-                        sceneDirty = true;
+                }
+                if (picked != Nova::Editor::GizmoAxis::None) {
+                    history.Push(scene);
+                    Nova::Editor::BeginViewportGizmoSession(
+                        gizmoSession, picked, frameViewport.CanvasSize.y);
+                } else {
+                    Nova::Ray pickRay;
+                    if (Nova::ViewportPointToRay(viewportCameraInPanel, mouseLocalX, mouseLocalY,
+                                                 frameViewport.CanvasSize.x,
+                                                 frameViewport.CanvasSize.y, pickRay)) {
+                        const Nova::Entity hit = Nova::PickSceneMesh(scene, pickRay);
+                        if (hit.IsValid()) {
+                            selected = hit;
+                            renameBuffer[0] = '\0';
+                        }
                     }
                 }
             }
 
-            if (selected.IsValid() && scene.IsAlive(selected) &&
-                viewportTool == ViewportTool::Move && hasCamInPanel) {
-                Nova::Camera cam;
-                if (Nova::BuildSceneCamera(scene, frameViewport.Aspect, cam)) {
-                    const Nova::Vec3 worldPos =
-                        WorldPositionFromMatrix(scene.GetWorldMatrix(selected));
-                    const float axisLen =
-                        std::max(0.25f, scene.GetTransform(selected).Scale.x * 0.75f);
-                    DrawTranslationGizmo(ImGui::GetWindowDrawList(), frameViewport,
-                                           cam.GetViewProjectionMatrix(), worldPos, axisLen);
+            if (showAxes && hasCamInPanel && gizmoSession.Active && frameViewport.CanvasActive) {
+                Nova::Transform& xform = scene.GetTransform(selected);
+                if (viewportTool == ViewportTool::Rotate) {
+                    const Nova::Quat before = xform.Rotation;
+                    Nova::Editor::ApplyViewportRotateAxis(
+                        gizmoSession, xform, ImGui::GetIO().MouseDelta.x,
+                        ImGui::GetIO().MouseDelta.y, viewportCameraInPanel);
+                    if (before.Dot(xform.Rotation) < 0.99999f) {
+                        sceneDirty = true;
+                    }
+                } else if (viewportTool == ViewportTool::Move) {
+                    Nova::Editor::ApplyViewportMoveAxis(
+                        gizmoSession, xform, ImGui::GetIO().MouseDelta.x,
+                        ImGui::GetIO().MouseDelta.y, viewportCameraInPanel);
+                    if (ImGui::GetIO().KeyShift) {
+                        xform.Position = Nova::Editor::SnapPositionToGrid(xform.Position);
+                    }
+                    sceneDirty = true;
+                } else if (viewportTool == ViewportTool::Scale) {
+                    Nova::Editor::ApplyViewportScaleAxis(
+                        gizmoSession, xform, ImGui::GetIO().MouseDelta.x,
+                        ImGui::GetIO().MouseDelta.y, viewportCameraInPanel);
+                    sceneDirty = true;
+                }
+            }
+
+            if (showAxes && hasCamInPanel) {
+                const Nova::Mat4 vp = viewportCameraInPanel.GetViewProjectionMatrix();
+                if (viewportTool == ViewportTool::Move) {
+                    DrawTranslationGizmo(ImGui::GetWindowDrawList(), frameViewport, vp, gizmoOrigin,
+                                         gizmoSize);
+                } else if (viewportTool == ViewportTool::Rotate) {
+                    DrawRotationGizmo(ImGui::GetWindowDrawList(), frameViewport, vp, gizmoOrigin,
+                                      gizmoSize);
+                } else {
+                    DrawScaleGizmo(ImGui::GetWindowDrawList(), frameViewport, vp, gizmoOrigin,
+                                   gizmoSize);
                 }
             }
         ImGui::End();
 
+        if (!ImGui::GetIO().WantTextInput) {
         if (ImGui::Shortcut(ImGuiKey_M, ImGuiInputFlags_RouteGlobal)) {
             viewportTool = ViewportTool::Move;
         }
@@ -1345,6 +1861,7 @@ int main() {
             !ImGui::GetIO().KeyCtrl) {
             viewportTool = ViewportTool::Scale;
         }
+        }
 
         Nova::Camera viewportCamera;
         const bool hasViewportCamera =
@@ -1353,8 +1870,7 @@ int main() {
             ViewportRotationRadiansPerPixel(std::max(frameViewport.CanvasSize.y, 64.0f));
 
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-            Nova::Editor::ResetViewportRotateSession(rotateSession);
-            scaleSession.Active = false;
+            Nova::Editor::ResetViewportGizmoSession(gizmoSession);
             moveHistoryPushed = false;
         }
 
@@ -1379,47 +1895,51 @@ int main() {
                 sceneDirty = true;
             }
 
-            if (selected.IsValid() && scene.IsAlive(selected) && !scene.HasCamera(selected)) {
-                Nova::Transform& xform = scene.GetTransform(selected);
+            if (selected.IsValid() && scene.IsAlive(selected) && !scene.HasCamera(selected) &&
+                !gizmoSession.Active && !scene.GetShowAxes(selected) &&
+                scene.HasMeshRenderer(selected)) {
                 if (frameViewport.CanvasActive && input.IsMouseButtonDown(Nova::MouseButton::Left) &&
-                    (dx != 0.0f || dy != 0.0f) && viewportTool == ViewportTool::Move) {
-                        if (!moveHistoryPushed) {
-                            history.Push(scene);
-                            moveHistoryPushed = true;
-                        }
-                        const float s = 0.01f;
-                        switch (moveAxis) {
-                        case MoveAxis::X:
-                            xform.Position.x += dx * s;
-                            break;
-                        case MoveAxis::Y:
-                            xform.Position.y -= dy * s;
-                            break;
-                        case MoveAxis::Z:
-                            xform.Position.z -= dy * s;
-                            break;
-                        case MoveAxis::Free:
-                            if (hasViewportCamera) {
-                                const Nova::Vec3 right = CameraRight(viewportCamera);
-                                const Nova::Vec3 up = CameraUp(viewportCamera);
-                                const float moveScale = s * 2.0f;
-                                xform.Position =
-                                    xform.Position + right * (dx * moveScale) - up * (dy * moveScale);
-                            } else {
-                                xform.Position.x += dx * s;
-                                xform.Position.y -= dy * s;
-                            }
-                            break;
-                        }
-                        if (ImGui::GetIO().KeyShift) {
-                            xform.Position = Nova::Editor::SnapPositionToGrid(xform.Position);
-                        }
-                        sceneDirty = true;
+                    (dx != 0.0f || dy != 0.0f)) {
+                    if (!moveHistoryPushed) {
+                        history.Push(scene);
+                        moveHistoryPushed = true;
                     }
+                    if (ImGui::GetIO().KeyAlt) {
+                        Nova::Editor::ApplyObjectTurn(scene.GetTransform(selected), dx, dy,
+                                                     frameViewport.CanvasSize.y);
+                    } else if (hasViewportCamera) {
+                        const float mx = ImGui::GetIO().MousePos.x - frameViewport.CanvasMin.x;
+                        const float my = ImGui::GetIO().MousePos.y - frameViewport.CanvasMin.y;
+                        Nova::Ray placeRay;
+                        if (Nova::ViewportPointToRay(viewportCamera, mx, my,
+                                                     frameViewport.CanvasSize.x,
+                                                     frameViewport.CanvasSize.y, placeRay)) {
+                            Nova::Vec3 hit;
+                            if (Nova::RayHitYPlane(placeRay, 0.0f, hit)) {
+                                Nova::Transform& xform = scene.GetTransform(selected);
+                                xform.Position.x = hit.x;
+                                xform.Position.z = hit.z;
+                                Nova::PlaceOnGround(scene, selected);
+                            }
+                        }
+                    }
+                    sceneDirty = true;
+                }
             }
 
-            if (input.IsMouseButtonDown(Nova::MouseButton::Right) && (dx != 0.0f || dy != 0.0f)) {
-                OrbitFromMouseDelta(orbit, dx, dy, rotPerPixel);
+            if (input.IsMouseButtonDown(Nova::MouseButton::Right)) {
+                Nova::Entity pivot = selected;
+                if (!pivot.IsValid() || !scene.IsAlive(pivot) || scene.HasCamera(pivot)) {
+                    pivot = scene.FindEntityByName("Player");
+                }
+                if (pivot.IsValid() && scene.IsAlive(pivot)) {
+                    const Nova::Vec3 feet =
+                        WorldPositionFromMatrix(scene.GetWorldMatrix(pivot));
+                    orbit.Target = {feet.x, feet.y + 1.2f, feet.z};
+                }
+                orbit.YawRadians += dx * rotPerPixel;
+                orbit.PitchRadians =
+                    Nova::Clamp(orbit.PitchRadians - dy * rotPerPixel, 0.08f, 1.2f);
                 sceneDirty = true;
             }
             if (hasViewportCamera &&
@@ -1433,6 +1953,175 @@ int main() {
                     Nova::Clamp(orbit.Distance - input.GetScrollY() * 0.25f, 0.8f, 30.0f);
                 sceneDirty = true;
             }
+        }
+
+        } else if (workspaceTab == WorkspaceTab::Content) {
+            ImGui::SetNextWindowPos(workPos);
+            ImGui::SetNextWindowSize(workSize);
+            ImGui::Begin(tr("tab_editor"), nullptr,
+                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoCollapse);
+            ImGui::TextWrapped("%s", tr("content_help"));
+            static char worldBuf[16384];
+            static bool worldLoaded = false;
+            const std::filesystem::path worldPath =
+                project.Root / "Assets" / "Scripts" / "world.ns";
+            if (!worldLoaded) {
+                const Nova::FileIOResult read = Nova::ReadTextFile(worldPath);
+                const std::string text = read.Ok ? read.Text : Nova::DefaultContentScript();
+                std::snprintf(worldBuf, sizeof(worldBuf), "%s", text.c_str());
+                worldLoaded = true;
+            }
+            ImGui::InputTextMultiline("##world", worldBuf, sizeof(worldBuf), ImVec2(-1.0f, -72.0f),
+                                      ImGuiInputTextFlags_AllowTabInput);
+            if (ImGui::Button(tr("apply"))) {
+                history.Push(scene);
+                Nova::Entity spawned{};
+                std::string error;
+                if (Nova::RunContentScript(scene, worldBuf, error, spawned)) {
+                    Nova::WriteTextFile(worldPath, worldBuf);
+                    if (spawned.IsValid()) {
+                        selected = spawned;
+                    }
+                    sceneDirty = true;
+                } else {
+                    ImGui::OpenPopup("content_err");
+                }
+                if (!error.empty()) {
+                    NOVA_LOG_ERROR("{}", error);
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(tr("save"))) {
+                Nova::WriteTextFile(worldPath, worldBuf);
+            }
+            if (ImGui::BeginPopup("content_err")) {
+                ImGui::TextUnformatted("Check the script.");
+                ImGui::EndPopup();
+            }
+            ImGui::End();
+            frameViewport.Gpu.Active = false;
+            viewportHovered = false;
+        } else if (workspaceTab == WorkspaceTab::Engine) {
+            ImGui::SetNextWindowPos(workPos);
+            ImGui::SetNextWindowSize(workSize);
+            ImGui::Begin(tr("tab_engine"), nullptr,
+                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoCollapse);
+            ImGui::TextWrapped("%s", tr("engine_help"));
+            static char gameBuf[16384];
+            static bool gameLoaded = false;
+            const std::filesystem::path gamePath = project.Root / "Assets" / "Scripts" / "game.ns";
+            if (!gameLoaded) {
+                const Nova::FileIOResult read = Nova::ReadTextFile(gamePath);
+                const std::string text = read.Ok ? read.Text : Nova::DefaultGameScript();
+                std::snprintf(gameBuf, sizeof(gameBuf), "%s", text.c_str());
+                gameLoaded = true;
+            }
+            ImGui::InputTextMultiline("##game", gameBuf, sizeof(gameBuf), ImVec2(-1.0f, -96.0f),
+                                      ImGuiInputTextFlags_AllowTabInput);
+            Nova::CompiledScript compiled;
+            std::string error;
+            const bool ok = Nova::CompileNovaScript(gameBuf, compiled, error);
+            if (!ok) {
+                ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.4f, 1.0f), "%s", error.c_str());
+            } else {
+                ImGui::TextDisabled("OK");
+            }
+            if (ImGui::Button(tr("save"))) {
+                Nova::WriteTextFile(gamePath, gameBuf);
+            }
+            ImGui::SameLine();
+            ImGui::TextUnformatted(tr("controls"));
+            DrawKeyBindingCombo(tr("forward"), engineSettings, "forward");
+            DrawKeyBindingCombo(tr("back"), engineSettings, "back");
+            DrawKeyBindingCombo(tr("left"), engineSettings, "left");
+            DrawKeyBindingCombo(tr("right"), engineSettings, "right");
+            DrawKeyBindingCombo(tr("jump"), engineSettings, "jump");
+            ImGui::End();
+            frameViewport.Gpu.Active = false;
+            viewportHovered = false;
+        } else if (workspaceTab == WorkspaceTab::Audio) {
+            ImGui::SetNextWindowPos(workPos);
+            ImGui::SetNextWindowSize(workSize);
+            ImGui::Begin(tr("tab_audio"), nullptr,
+                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoCollapse);
+            if (ImGui::Button(tr("import_wav"))) {
+                if (auto file = Nova::Editor::ShowOpenFileDialog(tr("import_wav"), kAudioFileFilters)) {
+                    if (ImportFileIntoProject(project, *file, "Assets/Audio")) {
+                        Nova::AudioEngine::Get().RefreshUserSounds(project.Root);
+                        invalidateProjectCaches();
+                    }
+                }
+            }
+            ImGui::SameLine();
+            ImGui::SliderFloat(tr("master_volume"), &engineSettings.MasterVolume, 0.0f, 1.0f);
+            Nova::AudioEngine::Get().SetEnabled(false);
+            Nova::AudioEngine::Get().SetMasterVolume(0.0f);
+            engineSettings.EnableAudio = false;
+            ImGui::Separator();
+            ImGui::TextUnformatted(tr("builtin_sounds"));
+            Nova::AudioEngine::Get().RefreshUserSounds(project.Root);
+            for (const Nova::SoundInfo& sound : Nova::AudioEngine::Get().ListSounds()) {
+                ImGui::PushID(sound.Id.c_str());
+                ImGui::Text("%s%s", sound.DisplayName.c_str(), sound.Builtin ? "" : "  (project)");
+                ImGui::SameLine();
+                if (ImGui::SmallButton(tr("preview"))) {
+                    Nova::AudioEngine::Get().Play(sound.Id);
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Apply") && selected.IsValid() && scene.IsAlive(selected)) {
+                    if (!scene.HasAudioSource(selected)) {
+                        scene.AddAudioSource(selected);
+                    }
+                    scene.GetAudioSource(selected).SoundId = sound.Id;
+                    sceneDirty = true;
+                }
+                ImGui::PopID();
+            }
+            ImGui::End();
+            frameViewport.Gpu.Active = false;
+            viewportHovered = false;
+        } else {
+            ImGui::SetNextWindowPos(workPos);
+            ImGui::SetNextWindowSize(workSize);
+            ImGui::Begin(tr("tab_settings"), nullptr,
+                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoCollapse);
+            ImGui::TextUnformatted(tr("language"));
+            int lang = engineSettings.Language == Nova::UiLanguage::English ? 0 : 1;
+            const char* langs[] = {tr("english"), tr("russian")};
+            if (ImGui::Combo("##lang", &lang, langs, 2)) {
+                engineSettings.Language =
+                    lang == 0 ? Nova::UiLanguage::English : Nova::UiLanguage::Russian;
+            }
+            ImGui::SliderFloat(tr("master_volume"), &engineSettings.MasterVolume, 0.0f, 1.0f);
+            Nova::AudioEngine::Get().SetEnabled(false);
+            Nova::AudioEngine::Get().SetMasterVolume(0.0f);
+            engineSettings.EnableAudio = false;
+            ImGui::SliderFloat(tr("editor_opacity"), &editorPreviewOpacity, 0.15f, 1.0f);
+            ImGui::TextWrapped("%s", tr("editor_opacity_help"));
+            ImGui::Separator();
+            ImGui::TextUnformatted(tr("controls"));
+            DrawKeyBindingCombo(tr("forward"), engineSettings, "forward");
+            DrawKeyBindingCombo(tr("back"), engineSettings, "back");
+            DrawKeyBindingCombo(tr("left"), engineSettings, "left");
+            DrawKeyBindingCombo(tr("right"), engineSettings, "right");
+            DrawKeyBindingCombo(tr("jump"), engineSettings, "jump");
+            DrawKeyBindingCombo(tr("sprint"), engineSettings, "sprint");
+            DrawKeyBindingCombo(tr("crouch"), engineSettings, "crouch");
+            DrawKeyBindingCombo(tr("attack"), engineSettings, "attack");
+            DrawKeyBindingCombo(tr("dodge"), engineSettings, "dodge");
+            DrawKeyBindingCombo(tr("interact"), engineSettings, "interact");
+            ImGui::SliderFloat(tr("mouse_sens"), &engineSettings.MouseSensitivity, 0.2f, 2.5f);
+            ImGui::Checkbox(tr("invert_y"), &engineSettings.InvertY);
+            if (ImGui::Button(tr("save_settings"))) {
+                Nova::SaveEngineSettings(project.Root, engineSettings);
+            }
+            ImGui::End();
+            frameViewport.Gpu.Active = false;
+            viewportHovered = false;
         }
 
         SyncOrbitToScene(activeScene, orbit);
@@ -1452,7 +2141,8 @@ int main() {
             renderAspect = fbH > 0 ? static_cast<float>(fbW) / static_cast<float>(fbH)
                                    : 16.0f / 9.0f;
         }
-        Nova::RenderScene(activeScene, *renderer, renderAspect, project.Root, meshCache, textureCache);
+        Nova::RenderScene(activeScene, *renderer, renderAspect, project.Root, meshCache, textureCache,
+                          isPlaying ? 1.0f : editorPreviewOpacity);
 
         ImGui::Render();
         renderer->BeginDrawing();
@@ -1464,6 +2154,7 @@ int main() {
     ImGui::DestroyContext();
 
     renderer->Shutdown();
+    Nova::AudioEngine::Get().Shutdown();
     Nova::Editor::DetachEditorLogSink();
     Nova::Log::Shutdown();
     return 0;

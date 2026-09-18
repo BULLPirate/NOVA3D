@@ -61,12 +61,17 @@ case "${1:-editor}" in
     SCENE="${2:-${ROOT}/Assets/Scenes/demo.scene.json}"
     exec "$(app_bin Nova3D)" --scene "${SCENE}"
     ;;
+  knight|bandits)
+    build_target Nova3D
+    GAME="${HOME}/Desktop/KnightBandits"
+    exec "$(app_bin Nova3D)" --project "${GAME}"
+    ;;
   game-project|gp)
     build_target Nova3D
     exec "$(app_bin Nova3D)" --project "${ROOT}"
     ;;
   *)
-    echo "Usage: $0 [editor|game|test|build|play-scene PATH|game-project]"
+    echo "Usage: $0 [editor|game|test|build|play-scene PATH|game-project|knight]"
     exit 1
     ;;
 esac

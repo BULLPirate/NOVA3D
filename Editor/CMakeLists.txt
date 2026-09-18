@@ -35,6 +35,7 @@ add_executable(NovaEditor MACOSX_BUNDLE
     src/EditorLogSink.cpp
     src/FileDialog.mm
     src/GameLauncher.mm
+    src/I18n.cpp
 )
 
 target_include_directories(NovaEditor PRIVATE include)
@@ -62,6 +63,7 @@ target_link_libraries(NovaEditor PRIVATE
     NovaRenderer
     NovaScene
     NovaPlugins
+    NovaAudio
     NovaImGui
     "-framework Metal"
     "-framework QuartzCore"

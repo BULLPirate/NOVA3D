@@ -5,6 +5,7 @@ add_library(NovaCore STATIC
     src/Time.cpp
     src/FileSystem.cpp
     src/Events.cpp
+    src/EngineSettings.cpp
 )
 
 target_include_directories(NovaCore PUBLIC include)

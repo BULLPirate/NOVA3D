@@ -47,6 +47,7 @@ Entity Scene::CreateEntity(const std::string& name) {
     EntityRecord& rec = m_Entities[index];
     rec.Alive = true;
     rec.Name = name;
+    rec.ShowAxes = false;
     rec.LocalTransform = Transform{};
     rec.Mesh.reset();
     rec.Camera.reset();
@@ -54,6 +55,11 @@ Entity Scene::CreateEntity(const std::string& name) {
     rec.Rotator.reset();
     rec.Mover.reset();
     rec.PointLight.reset();
+    rec.Character.reset();
+    rec.Player.reset();
+    rec.FollowCamera.reset();
+    rec.Script.reset();
+    rec.AudioSource.reset();
     rec.Parent = Entity{};
 
     return Entity{PackEntityId(index, rec.Generation)};
@@ -73,6 +79,11 @@ Entity Scene::DuplicateEntity(Entity source) {
     const std::optional<RotatorComponent> rotator = src->Rotator;
     const std::optional<MoverComponent> mover = src->Mover;
     const std::optional<PointLightComponent> point = src->PointLight;
+    const std::optional<CharacterControllerComponent> character = src->Character;
+    const std::optional<PlayerControllerComponent> player = src->Player;
+    const std::optional<FollowCameraComponent> follow = src->FollowCamera;
+    const std::optional<ScriptComponent> script = src->Script;
+    const std::optional<AudioSourceComponent> audio = src->AudioSource;
 
     Entity copy = CreateEntity(newName);
     GetTransform(copy) = xform;
@@ -96,7 +107,27 @@ Entity Scene::DuplicateEntity(Entity source) {
     if (point) {
         AddPointLight(copy, *point);
     }
+    if (character) {
+        AddCharacterController(copy, *character);
+    }
+    if (player) {
+        AddPlayerController(copy, *player);
+    }
+    if (follow) {
+        AddFollowCamera(copy, *follow);
+    }
+    if (script) {
+        ScriptComponent copied = *script;
+        copied.RanStart = false;
+        AddScript(copy, copied);
+    }
+    if (audio) {
+        AudioSourceComponent copied = *audio;
+        copied.Started = false;
+        AddAudioSource(copy, copied);
+    }
     SetParent(copy, src->Parent);
+    SetShowAxes(copy, src->ShowAxes);
     return copy;
 }
 
@@ -120,6 +151,11 @@ void Scene::DestroyEntity(Entity entity) {
     rec->Rotator.reset();
     rec->Mover.reset();
     rec->PointLight.reset();
+    rec->Character.reset();
+    rec->Player.reset();
+    rec->FollowCamera.reset();
+    rec->Script.reset();
+    rec->AudioSource.reset();
     if (rec->Generation < 255) {
         ++rec->Generation;
     }
@@ -141,6 +177,17 @@ const std::string& Scene::GetName(Entity entity) const {
 void Scene::SetName(Entity entity, const std::string& name) {
     if (EntityRecord* rec = GetRecord(entity)) {
         rec->Name = name;
+    }
+}
+
+bool Scene::GetShowAxes(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    return rec && rec->ShowAxes;
+}
+
+void Scene::SetShowAxes(Entity entity, bool show) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->ShowAxes = show;
     }
 }
 
@@ -358,6 +405,171 @@ void Scene::RemovePointLight(Entity entity) {
     }
 }
 
+bool Scene::HasCharacterController(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    return rec && rec->Character.has_value();
+}
+
+CharacterControllerComponent& Scene::GetCharacterController(Entity entity) {
+    EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Character) {
+        throw std::out_of_range("Scene::GetCharacterController missing component");
+    }
+    return *rec->Character;
+}
+
+const CharacterControllerComponent& Scene::GetCharacterController(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Character) {
+        throw std::out_of_range("Scene::GetCharacterController missing component");
+    }
+    return *rec->Character;
+}
+
+void Scene::AddCharacterController(Entity entity, CharacterControllerComponent character) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Character = character;
+    }
+}
+
+void Scene::RemoveCharacterController(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Character.reset();
+    }
+}
+
+bool Scene::HasPlayerController(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    return rec && rec->Player.has_value();
+}
+
+PlayerControllerComponent& Scene::GetPlayerController(Entity entity) {
+    EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Player) {
+        throw std::out_of_range("Scene::GetPlayerController missing component");
+    }
+    return *rec->Player;
+}
+
+const PlayerControllerComponent& Scene::GetPlayerController(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Player) {
+        throw std::out_of_range("Scene::GetPlayerController missing component");
+    }
+    return *rec->Player;
+}
+
+void Scene::AddPlayerController(Entity entity, PlayerControllerComponent player) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Player = player;
+    }
+}
+
+void Scene::RemovePlayerController(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Player.reset();
+    }
+}
+
+bool Scene::HasFollowCamera(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    return rec && rec->FollowCamera.has_value();
+}
+
+FollowCameraComponent& Scene::GetFollowCamera(Entity entity) {
+    EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->FollowCamera) {
+        throw std::out_of_range("Scene::GetFollowCamera missing component");
+    }
+    return *rec->FollowCamera;
+}
+
+const FollowCameraComponent& Scene::GetFollowCamera(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->FollowCamera) {
+        throw std::out_of_range("Scene::GetFollowCamera missing component");
+    }
+    return *rec->FollowCamera;
+}
+
+void Scene::AddFollowCamera(Entity entity, FollowCameraComponent follow) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->FollowCamera = follow;
+    }
+}
+
+void Scene::RemoveFollowCamera(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->FollowCamera.reset();
+    }
+}
+
+bool Scene::HasScript(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    return rec && rec->Script.has_value();
+}
+
+ScriptComponent& Scene::GetScript(Entity entity) {
+    EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Script) {
+        throw std::out_of_range("Scene::GetScript missing component");
+    }
+    return *rec->Script;
+}
+
+const ScriptComponent& Scene::GetScript(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Script) {
+        throw std::out_of_range("Scene::GetScript missing component");
+    }
+    return *rec->Script;
+}
+
+void Scene::AddScript(Entity entity, ScriptComponent script) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Script = script;
+    }
+}
+
+void Scene::RemoveScript(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Script.reset();
+    }
+}
+
+bool Scene::HasAudioSource(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    return rec && rec->AudioSource.has_value();
+}
+
+AudioSourceComponent& Scene::GetAudioSource(Entity entity) {
+    EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->AudioSource) {
+        throw std::out_of_range("Scene::GetAudioSource missing component");
+    }
+    return *rec->AudioSource;
+}
+
+const AudioSourceComponent& Scene::GetAudioSource(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->AudioSource) {
+        throw std::out_of_range("Scene::GetAudioSource missing component");
+    }
+    return *rec->AudioSource;
+}
+
+void Scene::AddAudioSource(Entity entity, AudioSourceComponent source) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->AudioSource = source;
+    }
+}
+
+void Scene::RemoveAudioSource(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->AudioSource.reset();
+    }
+}
+
 SceneSettings& Scene::Settings() {
     return m_Settings;
 }
@@ -463,28 +675,7 @@ void Scene::Clear() {
 }
 
 Scene Scene::CreateDemoLevel() {
-    Scene scene;
-
-    Entity sun = scene.CreateEntity("Sun");
-    DirectionalLightComponent light;
-    light.Direction = Vec3{0.45f, -0.88f, 0.15f}.Normalized();
-    scene.AddDirectionalLight(sun, light);
-
-    Entity cam = scene.CreateEntity("Main Camera");
-    CameraComponent camera;
-    camera.IsPrimary = true;
-    camera.LookAtTarget = {0.0f, 0.0f, 0.0f};
-    scene.AddCamera(cam, camera);
-    scene.GetTransform(cam).Position = {0.0f, 0.35f, 3.2f};
-
-    Entity cube = scene.CreateEntity("Cube");
-    MeshRendererComponent cubeMesh;
-    cubeMesh.AlbedoTexturePath = "Assets/Textures/checker.png";
-    cubeMesh.UseAlbedoTexture = true;
-    scene.AddMeshRenderer(cube, cubeMesh);
-    scene.GetTransform(cube).Position = {0.0f, 0.0f, 0.0f};
-
-    return scene;
+    return CreatePlayableLevel();
 }
 
 Scene Scene::CreateEmptyLevel() {
@@ -493,6 +684,7 @@ Scene Scene::CreateEmptyLevel() {
     Entity sun = scene.CreateEntity("Sun");
     DirectionalLightComponent light;
     light.Direction = Vec3{0.45f, -0.88f, 0.15f}.Normalized();
+    light.Ambient = 0.42f;
     scene.AddDirectionalLight(sun, light);
 
     Entity cam = scene.CreateEntity("Main Camera");

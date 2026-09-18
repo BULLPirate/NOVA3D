@@ -72,7 +72,7 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
                               sampler shadowSampler [[sampler(1)]]) {
     float3 N = normalize((u.model * float4(in.normal, 0.0)).xyz);
     float3 L = normalize(u.lightDir.xyz);
-    float NdotL = saturate(dot(N, L));
+    float NdotL = saturate(dot(N, L) * 0.55 + 0.45);
 
     float3 base = u.tint.rgb;
     if (u.lightColor.w > 0.5) {
@@ -635,6 +635,11 @@ private:
         pipelineDesc.fragmentFunction = fs;
         pipelineDesc.vertexDescriptor = vertexDesc;
         pipelineDesc.colorAttachments[0].pixelFormat = m_Layer.pixelFormat;
+        pipelineDesc.colorAttachments[0].blendingEnabled = YES;
+        pipelineDesc.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorSourceAlpha;
+        pipelineDesc.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
+        pipelineDesc.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorOne;
+        pipelineDesc.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
         pipelineDesc.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float;
 
         m_Pipeline = [m_Device newRenderPipelineStateWithDescriptor:pipelineDesc error:&error];

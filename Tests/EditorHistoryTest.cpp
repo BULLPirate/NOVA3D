@@ -4,10 +4,11 @@
 
 TEST(EditorHistory, UndoRestoresDestroyedEntity) {
     Nova::Scene scene = Nova::Scene::CreateDemoLevel();
+    Nova::Entity cube = scene.CreateEntity("Cube");
+    scene.AddMeshRenderer(cube);
     Nova::Editor::EditorHistory history;
     history.Push(scene);
 
-    const Nova::Entity cube = scene.FindEntityByName("Cube");
     ASSERT_TRUE(cube.IsValid());
     scene.DestroyEntity(cube);
     EXPECT_FALSE(scene.FindEntityByName("Cube").IsValid());
@@ -18,6 +19,8 @@ TEST(EditorHistory, UndoRestoresDestroyedEntity) {
 
 TEST(EditorHistory, RedoReappliesChange) {
     Nova::Scene scene = Nova::Scene::CreateDemoLevel();
+    Nova::Entity cube = scene.CreateEntity("Cube");
+    scene.AddMeshRenderer(cube);
     Nova::Editor::EditorHistory history;
     history.Push(scene);
     scene.GetTransform(scene.FindEntityByName("Cube")).Position.x = 4.0f;

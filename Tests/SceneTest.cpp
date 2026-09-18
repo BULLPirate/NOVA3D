@@ -32,24 +32,18 @@ TEST(Scene, EmptyLevelHasCameraAndLightOnly) {
     EXPECT_TRUE(scene.FindPrimaryCamera().IsValid());
 }
 
-TEST(Scene, DemoLevelHasCameraCubeAndLight) {
+TEST(Scene, DemoLevelIsPlayableGame) {
     Nova::Scene scene = Nova::Scene::CreateDemoLevel();
-    Nova::Entity camera = scene.FindPrimaryCamera();
-    EXPECT_TRUE(camera.IsValid());
-
-    int meshCount = 0;
-    int lightCount = 0;
-    scene.ForEachEntity([&](Nova::Entity e) {
-        if (scene.HasMeshRenderer(e)) ++meshCount;
-        if (scene.HasDirectionalLight(e)) ++lightCount;
-    });
-    EXPECT_EQ(meshCount, 1);
-    EXPECT_EQ(lightCount, 1);
+    EXPECT_TRUE(scene.FindPrimaryCamera().IsValid());
+    EXPECT_TRUE(scene.FindEntityByName("Player").IsValid());
+    EXPECT_TRUE(scene.FindEntityByName("Ground").IsValid());
+    EXPECT_TRUE(scene.HasPlayerController(scene.FindEntityByName("Player")));
+    EXPECT_TRUE(scene.HasFollowCamera(scene.FindPrimaryCamera()));
 }
 
 TEST(Scene, ClearRemovesEntities) {
     Nova::Scene scene = Nova::Scene::CreateDemoLevel();
-    EXPECT_EQ(scene.EntityCount(), 3u);
+    EXPECT_GE(scene.EntityCount(), 4u);
     scene.Clear();
     EXPECT_EQ(scene.EntityCount(), 0u);
 }
@@ -70,7 +64,7 @@ TEST(Scene, ClearResetsEnvironment) {
     Nova::Scene scene;
     scene.Settings().ClearColor = {1.0f, 0.0f, 0.0f};
     scene.Clear();
-    EXPECT_NEAR(scene.Settings().ClearColor.x, 0.10f, 1e-4f);
+    EXPECT_NEAR(scene.Settings().ClearColor.x, 0.52f, 1e-4f);
 }
 
 TEST(Scene, DuplicateEntityCopiesComponents) {

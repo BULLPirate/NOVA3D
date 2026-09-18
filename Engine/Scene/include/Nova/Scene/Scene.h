@@ -22,6 +22,8 @@ public:
 
     const std::string& GetName(Entity entity) const;
     void SetName(Entity entity, const std::string& name);
+    bool GetShowAxes(Entity entity) const;
+    void SetShowAxes(Entity entity, bool show);
 
     Transform& GetTransform(Entity entity);
     const Transform& GetTransform(Entity entity) const;
@@ -68,6 +70,36 @@ public:
     void AddPointLight(Entity entity, PointLightComponent light = {});
     void RemovePointLight(Entity entity);
 
+    bool HasCharacterController(Entity entity) const;
+    CharacterControllerComponent& GetCharacterController(Entity entity);
+    const CharacterControllerComponent& GetCharacterController(Entity entity) const;
+    void AddCharacterController(Entity entity, CharacterControllerComponent character = {});
+    void RemoveCharacterController(Entity entity);
+
+    bool HasPlayerController(Entity entity) const;
+    PlayerControllerComponent& GetPlayerController(Entity entity);
+    const PlayerControllerComponent& GetPlayerController(Entity entity) const;
+    void AddPlayerController(Entity entity, PlayerControllerComponent player = {});
+    void RemovePlayerController(Entity entity);
+
+    bool HasFollowCamera(Entity entity) const;
+    FollowCameraComponent& GetFollowCamera(Entity entity);
+    const FollowCameraComponent& GetFollowCamera(Entity entity) const;
+    void AddFollowCamera(Entity entity, FollowCameraComponent follow = {});
+    void RemoveFollowCamera(Entity entity);
+
+    bool HasScript(Entity entity) const;
+    ScriptComponent& GetScript(Entity entity);
+    const ScriptComponent& GetScript(Entity entity) const;
+    void AddScript(Entity entity, ScriptComponent script = {});
+    void RemoveScript(Entity entity);
+
+    bool HasAudioSource(Entity entity) const;
+    AudioSourceComponent& GetAudioSource(Entity entity);
+    const AudioSourceComponent& GetAudioSource(Entity entity) const;
+    void AddAudioSource(Entity entity, AudioSourceComponent source = {});
+    void RemoveAudioSource(Entity entity);
+
     SceneSettings& Settings();
     const SceneSettings& Settings() const;
 
@@ -82,9 +114,10 @@ public:
     /// Remove all entities (used before loading a scene file).
     void Clear();
 
-    /// Default playable level: primary camera, sun, one cube.
+    /// Playable game level: ground, player character, follow camera, sun.
+    static Scene CreatePlayableLevel();
     static Scene CreateDemoLevel();
-    /// Sun + primary camera only (no placeholder mesh).
+    /// Sun + primary camera only (no meshes).
     static Scene CreateEmptyLevel();
 
 private:
@@ -92,6 +125,7 @@ private:
         uint32_t Generation = 1;
         bool Alive = false;
         std::string Name;
+        bool ShowAxes = false;
         Transform LocalTransform;
         Entity Parent{};
         std::optional<MeshRendererComponent> Mesh;
@@ -100,6 +134,11 @@ private:
         std::optional<RotatorComponent> Rotator;
         std::optional<MoverComponent> Mover;
         std::optional<PointLightComponent> PointLight;
+        std::optional<CharacterControllerComponent> Character;
+        std::optional<PlayerControllerComponent> Player;
+        std::optional<FollowCameraComponent> FollowCamera;
+        std::optional<ScriptComponent> Script;
+        std::optional<AudioSourceComponent> AudioSource;
     };
 
     EntityRecord* GetRecord(Entity entity);
