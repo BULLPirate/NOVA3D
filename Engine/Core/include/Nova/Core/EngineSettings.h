@@ -17,6 +17,8 @@ struct EngineSettings {
     float MouseSensitivity = 1.0f;
     bool InvertY = false;
     bool EnableAudio = false;
+    /// Runtime/editor Play: when false, mouse does not orbit the follow camera.
+    bool MouseLook = true;
     std::unordered_map<std::string, KeyCode> Bindings;
 
     static EngineSettings Defaults();

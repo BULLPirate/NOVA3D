@@ -9,8 +9,7 @@ struct Material {
     float TintB = 1.0f;
     float TintA = 1.0f;
     bool UseAlbedoTexture = true;
-    /// When false, only diffuse/ambient lighting is used (avoids self-shadow flicker on a lone mesh).
-    bool ReceiveShadows = false;
+    bool ReceiveShadows = true;
 };
 
 } // namespace Nova

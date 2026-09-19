@@ -31,6 +31,10 @@ add_executable(NovaTests
     GameplayTest.cpp
     EngineSettingsTest.cpp
     ScriptTest.cpp
+    CollisionTest.cpp
+    PlacementTest.cpp
+    ProjectHubTest.cpp
+    GameSessionTest.cpp
 )
 
 target_compile_definitions(NovaTests PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")

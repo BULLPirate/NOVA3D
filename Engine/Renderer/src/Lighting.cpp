@@ -1,5 +1,6 @@
 #include <Nova/Renderer/Lighting.h>
 
+#include <algorithm>
 #include <cmath>
 
 namespace Nova {
@@ -18,7 +19,8 @@ Mat4 ComputeDirectionalLightViewProjection(const Vec3& lightDirectionTowardLight
                                            float nearPlane,
                                            float farPlane) {
     const Vec3 dir = lightDirectionTowardLight.Normalized();
-    const Vec3 eye = focus + dir * 12.0f;
+    const float dist = std::max(18.0f, orthoHalfExtent * 1.8f);
+    const Vec3 eye = focus + dir * dist;
 
     Vec3 up{0.0f, 1.0f, 0.0f};
     if (std::fabs(dir.Dot(up)) > 0.95f) {

@@ -160,13 +160,10 @@ std::string DefaultPlayerScript() {
 }
 
 std::string DefaultContentScript() {
-    return            "# character [model]\n"
-           "# enemy [model]\n"
-           "# item [model]\n"
-           "# map [model]\n"
-           "# ground / cube / sphere / plane\n"
-           "character\n"
-           "enemy\n";
+    return "# Empty world script. Uncomment to spawn from code:\n"
+           "# character\n"
+           "# enemy\n"
+           "# ground\n";
 }
 
 std::string DefaultGameScript() {

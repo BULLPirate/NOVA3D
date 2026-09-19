@@ -419,6 +419,24 @@ def make_wavs(out: Path) -> None:
     write_wav(out / "jump.wav", synth_whoosh(int(rate * 0.16), rate), rate)
 
 
+def make_pyramid(out: Path) -> None:
+    mesh = Mesh()
+    top = (0.0, 1.0, 0.0)
+    a = (-0.7, 0.0, -0.7)
+    b = (0.7, 0.0, -0.7)
+    c = (0.7, 0.0, 0.7)
+    d = (-0.7, 0.0, 0.7)
+    uv_t = uv_tile(2, 0, 0.5, 1.0)
+    uv_a = uv_tile(2, 0, 0.0, 0.0)
+    uv_b = uv_tile(2, 0, 1.0, 0.0)
+    mesh.add_tri(top, a, b, uv_t, uv_a, uv_b)
+    mesh.add_tri(top, b, c, uv_t, uv_a, uv_b)
+    mesh.add_tri(top, c, d, uv_t, uv_a, uv_b)
+    mesh.add_tri(top, d, a, uv_t, uv_a, uv_b)
+    mesh.add_quad(a, b, c, d, uv_a, uv_b, uv_t, uv_a)
+    mesh.write(out / "pyramid.obj")
+
+
 def copy_into(dst: Path) -> None:
     chars = dst / "Assets" / "Characters"
     tex = dst / "Assets" / "Textures"
@@ -430,18 +448,21 @@ def copy_into(dst: Path) -> None:
     make_ground_atlas(tex / "ground.png")
     make_stone_atlas(tex / "stone.png")
     make_wavs(audio)
-    # keep Models/knight.obj as the armed hero for older scenes
+    make_pyramid(models)
     armed = (chars / "knight_armed.obj").read_text()
     models.mkdir(parents=True, exist_ok=True)
     (models / "knight.obj").write_text(armed)
 
 
 def main() -> None:
+    import sys
+
     copy_into(ROOT)
-    game = Path.home() / "Desktop" / "KnightBandits"
-    copy_into(game)
     print("generated", ROOT / "Assets" / "Characters")
-    print("generated", game)
+    if "--engine-only" not in sys.argv:
+        game = Path.home() / "Desktop" / "KnightBandits"
+        copy_into(game)
+        print("generated", game)
 
 
 if __name__ == "__main__":

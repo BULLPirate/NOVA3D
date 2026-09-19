@@ -2,6 +2,7 @@
 
 #include <Nova/Assets/PngLoader.h>
 #include <Nova/Core/Log.h>
+#include <Nova/Core/FileSystem.h>
 
 namespace Nova {
 
@@ -17,7 +18,7 @@ TextureGpuHandle TextureAssetCache::Resolve(IRenderer& renderer,
         return found->second;
     }
 
-    const std::filesystem::path absolute = projectRoot / relativePath;
+    const std::filesystem::path absolute = ResolveDataFile(projectRoot, relativePath);
     PngLoadResult loaded = LoadPngImage(absolute);
     if (!loaded.Ok) {
         NOVA_LOG_WARN("Texture '{}': {} — using default", relativePath, loaded.Error);

@@ -42,6 +42,10 @@ TEST(Project, InitializeAndLoadRoundTrip) {
     EXPECT_TRUE(std::filesystem::is_directory(root / "Assets" / "Models"));
     EXPECT_TRUE(std::filesystem::is_directory(root / "Assets" / "Audio"));
     EXPECT_TRUE(std::filesystem::is_directory(root / "Assets" / "Scripts"));
+    EXPECT_TRUE(std::filesystem::exists(root / "Assets" / "Scenes" / "main.scene.json"));
+    Nova::Scene scene;
+    ASSERT_TRUE(Nova::LoadSceneFromFile(root / "Assets" / "Scenes" / "main.scene.json", scene).Ok);
+    EXPECT_FALSE(scene.FindEntityByName("Player").IsValid());
 
     RemoveTree(root);
 }

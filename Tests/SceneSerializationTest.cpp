@@ -47,8 +47,7 @@ TEST(SceneSerialization, BundledDemoSceneMatchesBuiltin) {
     Nova::Scene fromFile;
     const Nova::SceneIOResult load = Nova::LoadSceneFromFile(DemoScenePath(), fromFile);
     ASSERT_TRUE(load.Ok) << load.Error;
-    EXPECT_TRUE(fromFile.FindEntityByName("Player").IsValid());
-    EXPECT_TRUE(fromFile.FindEntityByName("Ground").IsValid());
+    EXPECT_FALSE(fromFile.FindEntityByName("Player").IsValid());
     EXPECT_TRUE(fromFile.FindPrimaryCamera().IsValid());
 }
 

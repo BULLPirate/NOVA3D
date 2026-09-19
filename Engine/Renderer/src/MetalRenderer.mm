@@ -32,6 +32,7 @@ struct FrameUniforms {
     float4 shadowParams; // x = bias, y = strength, z = global enabled, w = material receives
     float4 pointPos;     // xyz world, w = range (0 = off)
     float4 pointColor;   // rgb * intensity
+    float4 cameraPos;    // xyz eye
 };
 
 struct VertexIn {
@@ -57,9 +58,9 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
                              constant FrameUniforms& u [[buffer(1)]]) {
     VertexOut out;
     float4 world = u.model * float4(in.position, 1.0);
-    out.position = u.mvp * world;
+    out.position = u.mvp * float4(in.position, 1.0);
     out.worldPos = world.xyz;
-    out.normal = in.normal;
+    out.normal = normalize((u.model * float4(in.normal, 0.0)).xyz);
     out.texCoord = in.texCoord;
     return out;
 }
@@ -70,32 +71,45 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
                               depth2d<float> shadowMap [[texture(1)]],
                               sampler texSampler [[sampler(0)]],
                               sampler shadowSampler [[sampler(1)]]) {
-    float3 N = normalize((u.model * float4(in.normal, 0.0)).xyz);
+    float3 N = normalize(in.normal);
     float3 L = normalize(u.lightDir.xyz);
-    float NdotL = saturate(dot(N, L) * 0.55 + 0.45);
+    float NdotL = saturate(dot(N, L));
 
     float3 base = u.tint.rgb;
     if (u.lightColor.w > 0.5) {
         base *= albedo.sample(texSampler, in.texCoord).rgb;
     }
 
-    const float ambient = u.lightDir.w;
-    const float3 diffuse = u.lightColor.rgb * NdotL;
+    float3 hemi = mix(float3(0.28, 0.26, 0.24), float3(0.78, 0.84, 0.92), saturate(N.y * 0.5 + 0.5));
+    float3 ambient = hemi * max(u.lightDir.w, 0.38);
+    float3 diffuse = u.lightColor.rgb * NdotL;
 
     float shadow = 1.0;
-    if (u.shadowParams.z > 0.5 && u.shadowParams.w > 0.5 && NdotL > 0.001) {
+    if (u.shadowParams.z > 0.5 && u.shadowParams.w > 0.5) {
         float4 lightClip = u.lightViewProj * float4(in.worldPos, 1.0);
-        float3 ndc = lightClip.xyz / lightClip.w;
+        float3 ndc = lightClip.xyz / max(lightClip.w, 1e-5);
         float2 shadowUV = ndc.xy * 0.5 + 0.5;
         shadowUV.y = 1.0 - shadowUV.y;
-        bool inBounds = shadowUV.x >= 0.0 && shadowUV.x <= 1.0 &&
-                        shadowUV.y >= 0.0 && shadowUV.y <= 1.0;
+        bool inBounds = shadowUV.x >= 0.02 && shadowUV.x <= 0.98 &&
+                        shadowUV.y >= 0.02 && shadowUV.y <= 0.98 && ndc.z >= 0.0 && ndc.z <= 1.0;
         if (inBounds) {
             float slopeBias = u.shadowParams.x * (1.0 - NdotL);
             float depth = ndc.z - (u.shadowParams.x + slopeBias);
-            shadow = shadowMap.sample_compare(shadowSampler, shadowUV, depth);
+            float2 texel = float2(1.0 / 2048.0);
+            float accum = 0.0;
+            for (int y = -1; y <= 1; ++y) {
+                for (int x = -1; x <= 1; ++x) {
+                    accum += shadowMap.sample_compare(shadowSampler, shadowUV + float2(x, y) * texel,
+                                                      depth);
+                }
+            }
+            shadow = accum / 9.0;
         }
     }
+
+    float3 V = normalize(u.cameraPos.xyz - in.worldPos);
+    float3 H = normalize(L + V);
+    float spec = pow(saturate(dot(N, H)), 48.0) * NdotL;
 
     float3 pointLit = float3(0.0);
     if (u.pointPos.w > 0.001) {
@@ -104,11 +118,14 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         float3 Lp = toL / max(dist, 1e-5);
         float nd = saturate(dot(N, Lp));
         float t = saturate(1.0 - dist / u.pointPos.w);
-        pointLit = u.pointColor.rgb * nd * (t * t);
+        float3 Hp = normalize(Lp + V);
+        float pspec = pow(saturate(dot(N, Hp)), 32.0) * nd;
+        pointLit = u.pointColor.rgb * (nd + pspec * 0.45) * (t * t);
     }
 
     const float shade = mix(1.0 - u.shadowParams.y, 1.0, shadow);
-    const float3 lit = base * ambient + base * diffuse * shade + base * pointLit;
+    const float3 lit = base * ambient + base * diffuse * shade + u.lightColor.rgb * spec * 0.35 * shade +
+                       base * pointLit;
     return float4(lit, u.tint.a);
 }
 )";
@@ -123,6 +140,7 @@ struct FrameUniforms {
     float shadowParams[4];
     float pointPos[4];
     float pointColor[4];
+    float cameraPos[4];
 };
 
 static constexpr uint32_t kShadowMapSize = 2048;
@@ -204,6 +222,10 @@ public:
         m_Sampler = nil;
         m_DepthStencilState = nil;
         m_DepthTexture = nil;
+        m_SceneColor = nil;
+        m_SceneDepth = nil;
+        m_SceneW = 0;
+        m_SceneH = 0;
         m_Layer = nil;
         m_Queue = nil;
         m_Device = nil;
@@ -257,6 +279,11 @@ public:
             RenderShadowPass(m_CommandBuffer);
         }
 
+        if (m_Viewport.Active) {
+            EnsureEditorSceneTarget(m_Viewport.Width, m_Viewport.Height);
+            RenderQueuedMeshesToSceneTarget();
+        }
+
         m_Encoder = [m_CommandBuffer renderCommandEncoderWithDescriptor:m_FramePass];
         m_FramePass = nil;
     }
@@ -265,7 +292,9 @@ public:
         if (!m_CommandBuffer) return;
 
         if (m_Encoder) {
-            DrawQueuedMeshes(m_Encoder);
+            if (!m_Viewport.Active) {
+                DrawQueuedMeshes(m_Encoder);
+            }
 
             if (m_OverlayCallback) {
                 m_OverlayCallback((__bridge void*)m_CommandBuffer,
@@ -354,7 +383,16 @@ public:
         m_ClearColor = {r, g, b, a};
     }
 
-    void SetRenderViewport(const RenderViewport& viewport) override { m_Viewport = viewport; }
+    void SetRenderViewport(const RenderViewport& viewport) override {
+        m_Viewport = viewport;
+        if (m_Viewport.Active && m_Viewport.Width >= 8 && m_Viewport.Height >= 8) {
+            EnsureEditorSceneTarget(m_Viewport.Width, m_Viewport.Height);
+        }
+    }
+
+    void* GetEditorSceneTexture() const override {
+        return (__bridge void*)m_SceneColor;
+    }
 
     void OnResize(uint32_t width, uint32_t height) override {
         if (width == 0 || height == 0) return;
@@ -370,6 +408,8 @@ public:
 
     void SetCamera(const Camera& camera) override {
         m_ViewProj = camera.GetViewProjectionMatrix();
+        m_Eye = camera.Position;
+        m_Focus = camera.Target;
         UploadFrameUniforms();
     }
 
@@ -414,13 +454,7 @@ private:
     };
 
     bool ShouldRenderShadowPass() const {
-        if (!m_ShadowSettings.Enabled || !m_ShadowPipeline || !m_ShadowMap) {
-            return false;
-        }
-        for (const MeshDrawItem& draw : m_MeshDraws) {
-            if (draw.material.ReceiveShadows) return true;
-        }
-        return m_Material.ReceiveShadows;
+        return m_ShadowSettings.Enabled && m_ShadowPipeline && m_ShadowMap && !m_MeshDraws.empty();
     }
 
     const GpuMeshBuffers& MeshBuffers(MeshGpuHandle handle) const {
@@ -443,7 +477,7 @@ private:
         const GpuMeshBuffers& gpu = MeshBuffers(meshHandle);
         if (!m_Pipeline || !gpu.VertexBuffer || !gpu.IndexBuffer || gpu.IndexCount == 0) return;
 
-        if (!m_Viewport.Active) {
+        if (!m_Viewport.Active && !m_LockViewport) {
             MTLViewport viewport{};
             viewport.originX = 0;
             viewport.originY = 0;
@@ -458,8 +492,8 @@ private:
         [encoder setFrontFacingWinding:MTLWindingCounterClockwise];
         [encoder setCullMode:MTLCullModeBack];
         [encoder setVertexBuffer:gpu.VertexBuffer offset:0 atIndex:0];
-        [encoder setVertexBuffer:m_UniformBuffer offset:0 atIndex:1];
-        [encoder setFragmentBuffer:m_UniformBuffer offset:0 atIndex:1];
+        [encoder setVertexBytes:&m_Uniforms length:sizeof(m_Uniforms) atIndex:1];
+        [encoder setFragmentBytes:&m_Uniforms length:sizeof(m_Uniforms) atIndex:1];
         [encoder setFragmentTexture:AlbedoTexture(albedoHandle) atIndex:0];
         [encoder setFragmentTexture:m_ShadowMap atIndex:1];
         [encoder setFragmentSamplerState:m_Sampler atIndex:0];
@@ -497,7 +531,6 @@ private:
     void DrawQueuedMeshes(id<MTLRenderCommandEncoder> encoder) {
         ApplyViewportScissor(encoder);
         if (m_MeshDraws.empty()) {
-            DrawIndexedMesh(encoder, kDefaultMeshGpuHandle, kDefaultTextureGpuHandle);
             return;
         }
 
@@ -509,16 +542,70 @@ private:
         }
     }
 
+    void EnsureEditorSceneTarget(uint32_t width, uint32_t height) {
+        if (!m_Device || width < 8 || height < 8) {
+            return;
+        }
+        if (m_SceneColor && m_SceneW == width && m_SceneH == height) {
+            return;
+        }
+        m_SceneW = width;
+        m_SceneH = height;
+        MTLTextureDescriptor* colorDesc =
+            [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                                               width:width
+                                                              height:height
+                                                           mipmapped:NO];
+        colorDesc.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+        colorDesc.storageMode = MTLStorageModePrivate;
+        m_SceneColor = [m_Device newTextureWithDescriptor:colorDesc];
+        m_SceneColor.label = @"NovaEditorSceneColor";
+
+        MTLTextureDescriptor* depthDesc =
+            [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float
+                                                               width:width
+                                                              height:height
+                                                           mipmapped:NO];
+        depthDesc.usage = MTLTextureUsageRenderTarget;
+        depthDesc.storageMode = MTLStorageModePrivate;
+        m_SceneDepth = [m_Device newTextureWithDescriptor:depthDesc];
+        m_SceneDepth.label = @"NovaEditorSceneDepth";
+    }
+
+    void RenderQueuedMeshesToSceneTarget() {
+        if (!m_CommandBuffer || !m_SceneColor || !m_SceneDepth) {
+            return;
+        }
+        MTLRenderPassDescriptor* pass = [MTLRenderPassDescriptor renderPassDescriptor];
+        pass.colorAttachments[0].texture = m_SceneColor;
+        pass.colorAttachments[0].loadAction = MTLLoadActionClear;
+        pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(
+            m_ClearColor[0], m_ClearColor[1], m_ClearColor[2], 1.0);
+        pass.depthAttachment.texture = m_SceneDepth;
+        pass.depthAttachment.loadAction = MTLLoadActionClear;
+        pass.depthAttachment.storeAction = MTLStoreActionDontCare;
+        pass.depthAttachment.clearDepth = 1.0;
+
+        id<MTLRenderCommandEncoder> encoder = [m_CommandBuffer renderCommandEncoderWithDescriptor:pass];
+        encoder.label = @"NovaEditorScene";
+        MTLViewport vp{};
+        vp.width = static_cast<double>(m_SceneW);
+        vp.height = static_cast<double>(m_SceneH);
+        vp.znear = 0.0;
+        vp.zfar = 1.0;
+        [encoder setViewport:vp];
+        const RenderViewport saved = m_Viewport;
+        m_Viewport.Active = false;
+        m_LockViewport = true;
+        DrawQueuedMeshes(encoder);
+        m_LockViewport = false;
+        m_Viewport = saved;
+        [encoder endEncoding];
+    }
+
     void DrawShadowMeshes(id<MTLRenderCommandEncoder> encoder) {
         if (m_MeshDraws.empty()) {
-            const GpuMeshBuffers& gpu = MeshBuffers(kDefaultMeshGpuHandle);
-            [encoder setVertexBuffer:gpu.VertexBuffer offset:0 atIndex:0];
-            [encoder setVertexBuffer:m_UniformBuffer offset:0 atIndex:1];
-            [encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-                                indexCount:gpu.IndexCount
-                                 indexType:MTLIndexTypeUInt32
-                               indexBuffer:gpu.IndexBuffer
-                         indexBufferOffset:0];
             return;
         }
 
@@ -528,7 +615,7 @@ private:
             UploadFrameUniforms();
             const GpuMeshBuffers& gpu = MeshBuffers(draw.mesh);
             [encoder setVertexBuffer:gpu.VertexBuffer offset:0 atIndex:0];
-            [encoder setVertexBuffer:m_UniformBuffer offset:0 atIndex:1];
+            [encoder setVertexBytes:&m_Uniforms length:sizeof(m_Uniforms) atIndex:1];
             [encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
                                 indexCount:gpu.IndexCount
                                  indexType:MTLIndexTypeUInt32
@@ -559,7 +646,7 @@ private:
         m_Uniforms.tint[3] = m_Material.TintA;
 
         const Mat4 lightViewProj = ComputeDirectionalLightViewProjection(
-            m_Light.Direction, {0.0f, 0.0f, 0.0f},
+            m_Light.Direction, m_Focus,
             m_ShadowSettings.OrthoHalfExtent,
             m_ShadowSettings.NearPlane,
             m_ShadowSettings.FarPlane);
@@ -578,6 +665,10 @@ private:
         m_Uniforms.pointColor[1] = m_PointLight.Color.y;
         m_Uniforms.pointColor[2] = m_PointLight.Color.z;
         m_Uniforms.pointColor[3] = 1.0f;
+        m_Uniforms.cameraPos[0] = m_Eye.x;
+        m_Uniforms.cameraPos[1] = m_Eye.y;
+        m_Uniforms.cameraPos[2] = m_Eye.z;
+        m_Uniforms.cameraPos[3] = 1.0f;
 
         if (m_UniformBuffer) {
             std::memcpy([m_UniformBuffer contents], &m_Uniforms, sizeof(m_Uniforms));
@@ -790,8 +881,15 @@ private:
     uint32_t m_FbHeight = 0;
     Mat4 m_Model = Mat4::Identity();
     Mat4 m_ViewProj = Mat4::Identity();
+    Vec3 m_Eye{0.0f, 0.35f, 3.2f};
+    Vec3 m_Focus{0.0f, 0.0f, 0.0f};
     std::array<float, 4> m_ClearColor{0.08f, 0.09f, 0.12f, 1.0f};
     RenderViewport m_Viewport{};
+    id<MTLTexture> m_SceneColor = nil;
+    id<MTLTexture> m_SceneDepth = nil;
+    uint32_t m_SceneW = 0;
+    uint32_t m_SceneH = 0;
+    bool m_LockViewport = false;
 
     id<MTLDevice>               m_Device = nil;
     id<MTLCommandQueue>         m_Queue = nil;

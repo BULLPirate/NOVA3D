@@ -88,9 +88,23 @@ void RenderScene(const Scene& scene,
         }
 
         Material material;
-        material.TintR = mesh.AlbedoColor.x;
-        material.TintG = mesh.AlbedoColor.y;
-        material.TintB = mesh.AlbedoColor.z;
+        Vec3 tint = mesh.AlbedoColor;
+        Entity root = entity;
+        while (scene.GetParent(root).IsValid()) {
+            root = scene.GetParent(root);
+        }
+        if (scene.HasCharacterController(root)) {
+            const CharacterControllerComponent& character = scene.GetCharacterController(root);
+            if (character.HurtTimer > 0.0f) {
+                tint = {0.95f, 0.18f, 0.14f};
+            } else if (character.AttackTimer > 0.18f && character.Team == 0) {
+                tint = tint * 1.15f;
+                tint.x = std::min(1.0f, tint.x + 0.12f);
+            }
+        }
+        material.TintR = tint.x;
+        material.TintG = tint.y;
+        material.TintB = tint.z;
         material.TintA = std::clamp(mesh.Opacity * opacityMultiplier, 0.0f, 1.0f);
         material.UseAlbedoTexture = mesh.UseAlbedoTexture;
         material.ReceiveShadows = mesh.ReceiveShadows;

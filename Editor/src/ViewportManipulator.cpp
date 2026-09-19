@@ -290,6 +290,24 @@ void ApplyObjectTurn(Transform& transform, float mouseDeltaX, float mouseDeltaY,
     transform.Rotation = (qy * qx * transform.Rotation).Normalized();
 }
 
+void ApplyOrbitLook(float& yawRadians, float& pitchRadians, float mouseDeltaX, float mouseDeltaY,
+                    float radiansPerPixel) {
+    yawRadians += mouseDeltaX * radiansPerPixel;
+    pitchRadians = std::clamp(pitchRadians - mouseDeltaY * radiansPerPixel, 0.08f, 1.35f);
+}
+
+void ApplyOrbitDolly(float& distance, float amount, float minDistance, float maxDistance) {
+    distance = std::clamp(distance - amount, minDistance, maxDistance);
+}
+
+void FrameOrbitOnBounds(float& yawRadians, float& pitchRadians, float& distance, Vec3& target,
+                        const Vec3& center, float radius) {
+    target = {center.x, center.y, center.z};
+    pitchRadians = 0.52f;
+    yawRadians = 0.35f;
+    distance = std::clamp(std::max(6.0f, radius * 2.4f), 6.0f, 80.0f);
+}
+
 void FlyEditCamera(float& yawRadians, float& pitchRadians, float& distance, Vec3& target,
                    float mouseDeltaX, float mouseDeltaY, float radiansPerPixel, float wishRight,
                    float wishUp, float wishForward, float moveSpeed, float deltaSeconds) {
@@ -298,7 +316,7 @@ void FlyEditCamera(float& yawRadians, float& pitchRadians, float& distance, Vec3
     pitchRadians = std::clamp(pitchRadians, -1.55f, 1.55f);
 
     const float step = moveSpeed * std::max(deltaSeconds, 1.0f / 120.0f);
-    distance = std::clamp(distance - wishForward * step, 0.8f, 40.0f);
+    distance = std::clamp(distance - wishForward * step, 0.8f, 80.0f);
 
     const float cp = std::cos(pitchRadians);
     const float sp = std::sin(pitchRadians);

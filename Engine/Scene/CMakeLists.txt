@@ -16,6 +16,12 @@ add_library(NovaScene STATIC
     src/Project.cpp
     src/Gameplay.cpp
     src/Script.cpp
+    src/Collision.cpp
+    src/Placement.cpp
+    src/Workspace.cpp
+    src/SaveGame.cpp
+    src/ProjectTemplate.cpp
+    src/GameSession.cpp
 )
 
 target_include_directories(NovaScene PUBLIC include)

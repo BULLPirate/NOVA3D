@@ -1,4 +1,11 @@
-add_executable(Nova3D MACOSX_BUNDLE src/main.cpp)
+add_executable(Nova3D MACOSX_BUNDLE
+    src/main.cpp
+    src/HudOverlay.mm
+)
+
+set_source_files_properties(src/HudOverlay.mm PROPERTIES
+    COMPILE_FLAGS "-fobjc-arc"
+)
 
 set_target_properties(Nova3D PROPERTIES
     MACOSX_BUNDLE TRUE
@@ -7,9 +14,22 @@ set_target_properties(Nova3D PROPERTIES
     INSTALL_RPATH "@executable_path/../Frameworks"
 )
 
+target_include_directories(Nova3D PRIVATE include)
+
 target_compile_definitions(Nova3D PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
 
-target_link_libraries(Nova3D PRIVATE NovaCore NovaPlatform NovaMath NovaRenderer NovaScene NovaPlugins)
+target_link_libraries(Nova3D PRIVATE
+    NovaCore
+    NovaPlatform
+    NovaMath
+    NovaRenderer
+    NovaScene
+    NovaPlugins
+    NovaImGui
+    "-framework Metal"
+    "-framework QuartzCore"
+    "-framework Foundation"
+)
 
 add_custom_command(TARGET Nova3D POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory

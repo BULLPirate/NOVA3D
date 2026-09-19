@@ -2,6 +2,7 @@
 
 #include <Nova/Assets/MeshLoader.h>
 #include <Nova/Core/Log.h>
+#include <Nova/Core/FileSystem.h>
 #include <Nova/Renderer/Mesh.h>
 
 namespace Nova {
@@ -18,7 +19,7 @@ MeshGpuHandle MeshAssetCache::Resolve(IRenderer& renderer,
         return found->second;
     }
 
-    const std::filesystem::path absolute = projectRoot / relativeAssetPath;
+    const std::filesystem::path absolute = ResolveDataFile(projectRoot, relativeAssetPath);
     AssetLoadResult loaded = LoadMeshAsset(absolute);
     if (!loaded.Ok) {
         NOVA_LOG_WARN("Mesh asset '{}': {} — using unit cube", relativeAssetPath, loaded.Error);

@@ -2,6 +2,8 @@
 #include <Nova/Core/EngineSettings.h>
 #include <Nova/Core/FileSystem.h>
 #include <Nova/Scene/Script.h>
+#include <Nova/Scene/Scene.h>
+#include <Nova/Scene/SceneSerialization.h>
 
 #include <nlohmann/json.hpp>
 
@@ -180,6 +182,12 @@ ProjectIOResult InitializeNewProject(const std::filesystem::path& projectRoot,
     WriteTextFile(projectRoot / "Assets" / "Scripts" / "player.ns", DefaultPlayerScript());
     WriteTextFile(projectRoot / "Assets" / "Scripts" / "world.ns", DefaultContentScript());
     WriteTextFile(projectRoot / "Assets" / "Scripts" / "game.ns", DefaultGameScript());
+    std::string dirError;
+    CreateDirectories(projectRoot / "Saves", dirError);
+    CreateDirectories(projectRoot / "Assets" / "UI", dirError);
+
+    Scene empty = Scene::CreateEmptyLevel();
+    SaveSceneToFile(empty, projectRoot / "Assets" / "Scenes" / "main.scene.json");
 
     ProjectDescriptor project;
     project.Root = projectRoot;

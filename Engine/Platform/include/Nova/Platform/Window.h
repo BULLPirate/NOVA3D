@@ -52,6 +52,8 @@ public:
     void SetCursorCaptured(bool captured);
     bool IsCursorCaptured() const { return m_CursorCaptured; }
 
+    void SetTitle(const std::string& title);
+
 private:
     SDL_Window* m_Window     = nullptr;
     void*       m_MetalView  = nullptr; // SDL_MetalView

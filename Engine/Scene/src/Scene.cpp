@@ -71,7 +71,7 @@ Entity Scene::DuplicateEntity(Entity source) {
         return Entity{};
     }
 
-    const std::string newName = src->Name + " Copy";
+    const std::string newName = MakeUniqueName(src->Name);
     const Transform xform = src->LocalTransform;
     const std::optional<MeshRendererComponent> mesh = src->Mesh;
     const std::optional<CameraComponent> camera = src->Camera;
@@ -84,6 +84,8 @@ Entity Scene::DuplicateEntity(Entity source) {
     const std::optional<FollowCameraComponent> follow = src->FollowCamera;
     const std::optional<ScriptComponent> script = src->Script;
     const std::optional<AudioSourceComponent> audio = src->AudioSource;
+    const std::optional<ColliderComponent> collider = src->Collider;
+    const std::optional<PickupComponent> pickup = src->Pickup;
 
     Entity copy = CreateEntity(newName);
     GetTransform(copy) = xform;
@@ -126,24 +128,48 @@ Entity Scene::DuplicateEntity(Entity source) {
         copied.Started = false;
         AddAudioSource(copy, copied);
     }
+    if (collider) {
+        AddCollider(copy, *collider);
+    }
+    if (pickup) {
+        PickupComponent copied = *pickup;
+        copied.Taken = false;
+        AddPickup(copy, copied);
+    }
     SetParent(copy, src->Parent);
     SetShowAxes(copy, src->ShowAxes);
+
+    std::vector<Entity> children;
+    ForEachEntity([&](Entity entity) {
+        if (entity.Id != source.Id && GetParent(entity).Id == source.Id) {
+            children.push_back(entity);
+        }
+    });
+    for (Entity child : children) {
+        const Entity childCopy = DuplicateEntity(child);
+        if (childCopy.IsValid()) {
+            SetParent(childCopy, copy);
+        }
+    }
     return copy;
 }
 
 void Scene::DestroyEntity(Entity entity) {
     EntityRecord* rec = GetRecord(entity);
     if (!rec) return;
+    std::vector<Entity> children;
     ForEachEntity([&](Entity e) {
-        if (e.Id == entity.Id) {
-            return;
-        }
-        if (EntityRecord* child = GetRecord(e)) {
-            if (child->Parent.Id == entity.Id) {
-                child->Parent = Entity{};
-            }
+        if (e.Id != entity.Id && GetParent(e).Id == entity.Id) {
+            children.push_back(e);
         }
     });
+    for (Entity child : children) {
+        DestroyEntity(child);
+    }
+    rec = GetRecord(entity);
+    if (!rec) {
+        return;
+    }
     rec->Alive = false;
     rec->Mesh.reset();
     rec->Camera.reset();
@@ -156,6 +182,8 @@ void Scene::DestroyEntity(Entity entity) {
     rec->FollowCamera.reset();
     rec->Script.reset();
     rec->AudioSource.reset();
+    rec->Collider.reset();
+    rec->Pickup.reset();
     if (rec->Generation < 255) {
         ++rec->Generation;
     }
@@ -570,6 +598,72 @@ void Scene::RemoveAudioSource(Entity entity) {
     }
 }
 
+bool Scene::HasCollider(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    return rec && rec->Collider.has_value();
+}
+
+ColliderComponent& Scene::GetCollider(Entity entity) {
+    EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Collider) {
+        throw std::out_of_range("Scene::GetCollider missing component");
+    }
+    return *rec->Collider;
+}
+
+const ColliderComponent& Scene::GetCollider(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Collider) {
+        throw std::out_of_range("Scene::GetCollider missing component");
+    }
+    return *rec->Collider;
+}
+
+void Scene::AddCollider(Entity entity, ColliderComponent collider) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Collider = collider;
+    }
+}
+
+void Scene::RemoveCollider(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Collider.reset();
+    }
+}
+
+bool Scene::HasPickup(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    return rec && rec->Pickup.has_value();
+}
+
+PickupComponent& Scene::GetPickup(Entity entity) {
+    EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Pickup) {
+        throw std::out_of_range("Scene::GetPickup missing component");
+    }
+    return *rec->Pickup;
+}
+
+const PickupComponent& Scene::GetPickup(Entity entity) const {
+    const EntityRecord* rec = GetRecord(entity);
+    if (!rec || !rec->Pickup) {
+        throw std::out_of_range("Scene::GetPickup missing component");
+    }
+    return *rec->Pickup;
+}
+
+void Scene::AddPickup(Entity entity, PickupComponent pickup) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Pickup = pickup;
+    }
+}
+
+void Scene::RemovePickup(Entity entity) {
+    if (EntityRecord* rec = GetRecord(entity)) {
+        rec->Pickup.reset();
+    }
+}
+
 SceneSettings& Scene::Settings() {
     return m_Settings;
 }
@@ -634,6 +728,19 @@ Entity Scene::FindEntityByName(const std::string& name) const {
     return found;
 }
 
+std::string Scene::MakeUniqueName(const std::string& base) const {
+    if (!FindEntityByName(base).IsValid()) {
+        return base;
+    }
+    for (int i = 2; i < 10000; ++i) {
+        const std::string candidate = base + " " + std::to_string(i);
+        if (!FindEntityByName(candidate).IsValid()) {
+            return candidate;
+        }
+    }
+    return base + " Copy";
+}
+
 void Scene::SetPrimaryCamera(Entity entity) {
     if (!HasCamera(entity)) {
         return;
@@ -675,7 +782,7 @@ void Scene::Clear() {
 }
 
 Scene Scene::CreateDemoLevel() {
-    return CreatePlayableLevel();
+    return CreateEmptyLevel();
 }
 
 Scene Scene::CreateEmptyLevel() {
@@ -684,15 +791,15 @@ Scene Scene::CreateEmptyLevel() {
     Entity sun = scene.CreateEntity("Sun");
     DirectionalLightComponent light;
     light.Direction = Vec3{0.45f, -0.88f, 0.15f}.Normalized();
-    light.Ambient = 0.42f;
+    light.Ambient = 0.40f;
     scene.AddDirectionalLight(sun, light);
 
     Entity cam = scene.CreateEntity("Main Camera");
     CameraComponent camera;
     camera.IsPrimary = true;
-    camera.LookAtTarget = {0.0f, 0.0f, 0.0f};
+    camera.LookAtTarget = {0.0f, 0.8f, 0.0f};
     scene.AddCamera(cam, camera);
-    scene.GetTransform(cam).Position = {0.0f, 0.35f, 3.2f};
+    scene.GetTransform(cam).Position = {7.5f, 5.4f, 11.0f};
 
     return scene;
 }

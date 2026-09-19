@@ -22,6 +22,9 @@ void Clock::Tick() {
     }
 
     m_DeltaSeconds = std::chrono::duration<float>(now - m_Last).count();
+    if (m_DeltaSeconds > 0.05f) {
+        m_DeltaSeconds = 0.05f;
+    }
     m_TotalSeconds = std::chrono::duration<float>(now - m_Start).count();
     m_Last = now;
 }

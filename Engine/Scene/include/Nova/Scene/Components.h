@@ -29,7 +29,7 @@ struct MeshRendererComponent {
     std::string AlbedoTexturePath;
     AssetId AlbedoTextureId;
     bool UseAlbedoTexture = true;
-    bool ReceiveShadows = false;
+    bool ReceiveShadows = true;
 };
 
 /// Continuous rotation (radians per second per axis).
@@ -67,6 +67,24 @@ struct PointLightComponent {
 
 struct SceneSettings {
     Vec3 ClearColor{0.52f, 0.66f, 0.80f};
+    int Wave = 1;
+    int Score = 0;
+    bool PendingWave = false;
+    float WaveTimer = 0.0f;
+    /// Game-mode flag stored in the project's scene, not in the engine default.
+    bool EnableWaves = false;
+};
+
+struct ColliderComponent {
+    bool Solid = true;
+    /// Zero means use the entity Transform scale.
+    Vec3 Size{0.0f, 0.0f, 0.0f};
+};
+
+struct PickupComponent {
+    float Heal = 40.0f;
+    bool Taken = false;
+    float Hover = 0.0f;
 };
 
 struct CharacterControllerComponent {
@@ -96,6 +114,11 @@ struct CharacterControllerComponent {
     bool Dead = false;
     /// Yaw the body faces. Camera look is separate.
     float FacingYaw = 0.0f;
+    float Radius = 0.36f;
+    float HurtTimer = 0.0f;
+    Vec3 KnockbackVelocity{0.0f, 0.0f, 0.0f};
+    float WalkPhase = 0.0f;
+    float CorpseTimer = 0.0f;
 };
 
 struct PlayerControllerComponent {

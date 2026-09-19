@@ -56,6 +56,13 @@ TEST(FileSystem, WriteReadRoundTrip) {
     std::filesystem::remove_all(path.parent_path(), ec);
 }
 
+TEST(FileSystem, ResolveDataFileFallsBackToEngineRoot) {
+    const std::filesystem::path resolved =
+        Nova::ResolveDataFile({}, "Assets/Textures/ground.png");
+    EXPECT_TRUE(Nova::FileExists(resolved));
+    EXPECT_NE(resolved.generic_string().find("ground.png"), std::string::npos);
+}
+
 TEST(EventBus, SubscribePublishUnsubscribe) {
     struct Ping {
         int Value = 0;

@@ -61,12 +61,13 @@ include_directories(
 
 # ── Subdirectories ─────────────────────────────────────────────────────────────
 add_subdirectory(Engine)
-add_subdirectory(Runtime)
 
 option(NOVA_BUILD_EDITOR "Build NOVA3D editor (ImGui)" ON)
 if(NOVA_BUILD_EDITOR)
     add_subdirectory(Editor)
 endif()
+
+add_subdirectory(Runtime)
 
 option(NOVA_BUILD_TESTS "Build unit tests" ON)
 if(NOVA_BUILD_TESTS)

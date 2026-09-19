@@ -110,4 +110,32 @@ bool RayHitYPlane(const Ray& ray, float planeY, Vec3& outHit) {
     return true;
 }
 
+bool RayHitGround(const Scene& scene, const Ray& ray, Vec3& outHit) {
+    float bestT = std::numeric_limits<float>::max();
+    bool hit = false;
+    scene.ForEachEntity([&](Entity entity) {
+        if (!scene.HasMeshRenderer(entity)) {
+            return;
+        }
+        if (scene.GetMeshRenderer(entity).Primitive != MeshPrimitive::UnitPlane) {
+            return;
+        }
+        const float planeY = scene.GetTransform(entity).Position.y;
+        if (std::fabs(ray.Direction.y) < 1e-6f) {
+            return;
+        }
+        const float t = (planeY - ray.Origin.y) / ray.Direction.y;
+        if (t < 0.02f || t >= bestT) {
+            return;
+        }
+        bestT = t;
+        outHit = ray.Origin + ray.Direction * t;
+        hit = true;
+    });
+    if (hit) {
+        return true;
+    }
+    return RayHitYPlane(ray, 0.0f, outHit);
+}
+
 } // namespace Nova

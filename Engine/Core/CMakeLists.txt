@@ -9,4 +9,5 @@ add_library(NovaCore STATIC
 )
 
 target_include_directories(NovaCore PUBLIC include)
+target_compile_definitions(NovaCore PRIVATE "NOVA_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
 target_link_libraries(NovaCore PUBLIC spdlog::spdlog)

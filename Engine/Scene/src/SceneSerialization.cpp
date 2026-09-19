@@ -220,6 +220,8 @@ json EntityToJson(const Scene& scene, Entity entity, const std::unordered_set<ui
             {"attackDamage", character.AttackDamage},
             {"attackRange", character.AttackRange},
             {"detectRange", character.DetectRange},
+            {"dead", character.Dead},
+            {"radius", character.Radius},
         };
     }
     if (scene.HasPlayerController(entity)) {
@@ -247,6 +249,20 @@ json EntityToJson(const Scene& scene, Entity entity, const std::unordered_set<ui
         j["audioSource"] = {
             {"sound", audio.SoundId},
             {"playOnStart", audio.PlayOnStart},
+        };
+    }
+    if (scene.HasCollider(entity)) {
+        const ColliderComponent& collider = scene.GetCollider(entity);
+        j["collider"] = {
+            {"solid", collider.Solid},
+            {"size", Vec3ToJson(collider.Size)},
+        };
+    }
+    if (scene.HasPickup(entity)) {
+        const PickupComponent& pickup = scene.GetPickup(entity);
+        j["pickup"] = {
+            {"heal", pickup.Heal},
+            {"taken", pickup.Taken},
         };
     }
 
@@ -433,6 +449,8 @@ bool EntityFromJson(const json& entityJson, Scene& scene, std::string& error) {
         character.AttackDamage = cJson.value("attackDamage", character.AttackDamage);
         character.AttackRange = cJson.value("attackRange", character.AttackRange);
         character.DetectRange = cJson.value("detectRange", character.DetectRange);
+        character.Dead = cJson.value("dead", character.Dead);
+        character.Radius = cJson.value("radius", character.Radius);
         scene.AddCharacterController(entity, character);
     }
 
@@ -486,6 +504,32 @@ bool EntityFromJson(const json& entityJson, Scene& scene, std::string& error) {
         scene.AddAudioSource(entity, audio);
     }
 
+    if (entityJson.contains("collider")) {
+        const json& cJson = entityJson["collider"];
+        if (!cJson.is_object()) {
+            error = "collider must be an object";
+            return false;
+        }
+        ColliderComponent collider;
+        collider.Solid = cJson.value("solid", true);
+        if (cJson.contains("size") && !Vec3FromJson(cJson["size"], collider.Size, error)) {
+            return false;
+        }
+        scene.AddCollider(entity, collider);
+    }
+
+    if (entityJson.contains("pickup")) {
+        const json& pJson = entityJson["pickup"];
+        if (!pJson.is_object()) {
+            error = "pickup must be an object";
+            return false;
+        }
+        PickupComponent pickup;
+        pickup.Heal = pJson.value("heal", pickup.Heal);
+        pickup.Taken = pJson.value("taken", pickup.Taken);
+        scene.AddPickup(entity, pickup);
+    }
+
     return true;
 }
 
@@ -504,6 +548,8 @@ struct EntitySnapshot {
     std::optional<FollowCameraComponent> Follow;
     std::optional<ScriptComponent> Script;
     std::optional<AudioSourceComponent> Audio;
+    std::optional<ColliderComponent> Collider;
+    std::optional<PickupComponent> Pickup;
 };
 
 std::vector<EntitySnapshot> SnapshotScene(const Scene& scene) {
@@ -527,6 +573,8 @@ std::vector<EntitySnapshot> SnapshotScene(const Scene& scene) {
         if (scene.HasFollowCamera(entity)) snap.Follow = scene.GetFollowCamera(entity);
         if (scene.HasScript(entity)) snap.Script = scene.GetScript(entity);
         if (scene.HasAudioSource(entity)) snap.Audio = scene.GetAudioSource(entity);
+        if (scene.HasCollider(entity)) snap.Collider = scene.GetCollider(entity);
+        if (scene.HasPickup(entity)) snap.Pickup = scene.GetPickup(entity);
         snapshots.push_back(std::move(snap));
     });
     return snapshots;
@@ -597,6 +645,12 @@ Entity CopyEntityInto(const Scene& src, Entity source, Scene& dest, const std::s
         audio.Started = false;
         dest.AddAudioSource(copy, audio);
     }
+    if (src.HasCollider(source)) {
+        dest.AddCollider(copy, src.GetCollider(source));
+    }
+    if (src.HasPickup(source)) {
+        dest.AddPickup(copy, src.GetPickup(source));
+    }
     return copy;
 }
 
@@ -606,7 +660,12 @@ std::string SerializeSceneToString(const Scene& scene) {
     json root;
     root["format"] = kSceneFileFormat;
     root["version"] = kSceneFileVersion;
-    root["environment"] = {{"clearColor", Vec3ToJson(scene.Settings().ClearColor)}};
+    root["environment"] = {
+        {"clearColor", Vec3ToJson(scene.Settings().ClearColor)},
+        {"wave", scene.Settings().Wave},
+        {"score", scene.Settings().Score},
+        {"enableWaves", scene.Settings().EnableWaves},
+    };
     json entities = json::array();
     scene.ForEachEntity([&](Entity entity) { entities.push_back(EntityToJson(scene, entity, nullptr)); });
     root["entities"] = entities;
@@ -667,6 +726,9 @@ SceneIOResult DeserializeSceneFromString(const std::string& jsonText, Scene& out
                     return result;
                 }
             }
+            outScene.Settings().Wave = env.value("wave", outScene.Settings().Wave);
+            outScene.Settings().Score = env.value("score", outScene.Settings().Score);
+            outScene.Settings().EnableWaves = env.value("enableWaves", outScene.Settings().EnableWaves);
         }
 
         result.Ok = true;
@@ -800,6 +862,16 @@ bool ScenesEquivalent(const Scene& a, const Scene& b, float epsilon) {
                          sa.Audio->PlayOnStart != sb.Audio->PlayOnStart)) {
             return false;
         }
+        if (static_cast<bool>(sa.Collider) != static_cast<bool>(sb.Collider)) return false;
+        if (sa.Collider && (sa.Collider->Solid != sb.Collider->Solid ||
+                            !Vec3Near(sa.Collider->Size, sb.Collider->Size, epsilon))) {
+            return false;
+        }
+        if (static_cast<bool>(sa.Pickup) != static_cast<bool>(sb.Pickup)) return false;
+        if (sa.Pickup && (!NearlyEqual(sa.Pickup->Heal, sb.Pickup->Heal, epsilon) ||
+                          sa.Pickup->Taken != sb.Pickup->Taken)) {
+            return false;
+        }
 
         if (static_cast<bool>(sa.Camera) != static_cast<bool>(sb.Camera)) return false;
         if (sa.Camera) {
@@ -831,7 +903,9 @@ bool ScenesEquivalent(const Scene& a, const Scene& b, float epsilon) {
         }
     }
 
-    return Vec3Near(a.Settings().ClearColor, b.Settings().ClearColor, epsilon);
+    return Vec3Near(a.Settings().ClearColor, b.Settings().ClearColor, epsilon) &&
+           a.Settings().Wave == b.Settings().Wave && a.Settings().Score == b.Settings().Score &&
+           a.Settings().EnableWaves == b.Settings().EnableWaves;
 }
 
 std::string SerializePrefabToString(const Scene& scene, Entity root) {

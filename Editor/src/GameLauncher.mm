@@ -1,5 +1,6 @@
 #include "GameLauncher.h"
 
+#include <Nova/Project/Project.h>
 #include <Nova/Core/Log.h>
 
 #import <Foundation/Foundation.h>
@@ -61,15 +62,22 @@ std::filesystem::path ResolveNova3DAppBundle() {
     return {};
 }
 
-bool LaunchGameWithScene(const std::filesystem::path& scenePath) {
+bool LaunchGame(const Nova::ProjectDescriptor& project, const std::filesystem::path& scenePath) {
+    if (project.Root.empty() || !Nova::IsNovaProjectRoot(project.Root)) {
+        NOVA_LOG_ERROR("Cannot launch game: no project folder is open");
+        return false;
+    }
     const std::filesystem::path app = ResolveNova3DAppBundle();
     if (app.empty() || !std::filesystem::exists(app)) {
         NOVA_LOG_ERROR("Nova3D.app not found — build with: cmake --build build --target Nova3D");
         return false;
     }
 
-    const std::string cmd = "open -n " + ShellQuote(app) + " --args --scene " +
-                            ShellQuote(std::filesystem::absolute(scenePath));
+    std::string cmd = "open -n " + ShellQuote(app) + " --args --project " +
+                      ShellQuote(std::filesystem::absolute(project.Root));
+    if (!scenePath.empty()) {
+        cmd += " --scene " + ShellQuote(std::filesystem::absolute(scenePath));
+    }
     NOVA_LOG_INFO("Launching game: {}", cmd);
     const int code = std::system(cmd.c_str());
     if (code != 0) {

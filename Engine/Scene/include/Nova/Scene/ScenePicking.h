@@ -24,4 +24,7 @@ Entity PickSceneMesh(const Scene& scene, const Ray& worldRay);
 
 bool RayHitYPlane(const Ray& ray, float planeY, Vec3& outHit);
 
+/// Closest ground plane under the ray, else y = 0.
+bool RayHitGround(const Scene& scene, const Ray& ray, Vec3& outHit);
+
 } // namespace Nova

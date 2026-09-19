@@ -16,11 +16,11 @@ struct DirectionalLight {
 Vec3 LightDirectionTowardSurface(const Vec3& rayDirectionWorld);
 
 struct ShadowSettings {
-    float OrthoHalfExtent = 2.5f;
-    float NearPlane       = 0.5f;
-    float FarPlane        = 25.0f;
-    float Bias            = 0.0025f;
-    float Strength        = 0.72f;
+    float OrthoHalfExtent = 18.0f;
+    float NearPlane       = 1.0f;
+    float FarPlane        = 80.0f;
+    float Bias            = 0.0018f;
+    float Strength        = 0.58f;
     bool  Enabled         = true;
 };
 

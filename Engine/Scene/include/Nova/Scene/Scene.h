@@ -16,7 +16,7 @@ class Scene {
 public:
     Entity CreateEntity(const std::string& name = "Entity");
     void DestroyEntity(Entity entity);
-    /// Copies transform and all attached components. Name is set by caller after create.
+    /// Copies the entity and its child subtree. Names stay unique.
     Entity DuplicateEntity(Entity source);
     bool IsAlive(Entity entity) const;
 
@@ -33,6 +33,7 @@ public:
     Mat4 GetWorldMatrix(Entity entity) const;
 
     Entity FindEntityByName(const std::string& name) const;
+    std::string MakeUniqueName(const std::string& base) const;
 
     bool HasMeshRenderer(Entity entity) const;
     MeshRendererComponent& GetMeshRenderer(Entity entity);
@@ -100,6 +101,18 @@ public:
     void AddAudioSource(Entity entity, AudioSourceComponent source = {});
     void RemoveAudioSource(Entity entity);
 
+    bool HasCollider(Entity entity) const;
+    ColliderComponent& GetCollider(Entity entity);
+    const ColliderComponent& GetCollider(Entity entity) const;
+    void AddCollider(Entity entity, ColliderComponent collider = {});
+    void RemoveCollider(Entity entity);
+
+    bool HasPickup(Entity entity) const;
+    PickupComponent& GetPickup(Entity entity);
+    const PickupComponent& GetPickup(Entity entity) const;
+    void AddPickup(Entity entity, PickupComponent pickup = {});
+    void RemovePickup(Entity entity);
+
     SceneSettings& Settings();
     const SceneSettings& Settings() const;
 
@@ -114,11 +127,13 @@ public:
     /// Remove all entities (used before loading a scene file).
     void Clear();
 
-    /// Playable game level: ground, player character, follow camera, sun.
+    /// Empty editor scene: sun + camera.
+    static Scene CreateEmptyLevel();
+    /// Ground + player + follow camera. No enemies, no waves.
+    static Scene CreateSandboxLevel();
+    /// Combat arena used by the Knight Bandits game project and tests.
     static Scene CreatePlayableLevel();
     static Scene CreateDemoLevel();
-    /// Sun + primary camera only (no meshes).
-    static Scene CreateEmptyLevel();
 
 private:
     struct EntityRecord {
@@ -139,6 +154,8 @@ private:
         std::optional<FollowCameraComponent> FollowCamera;
         std::optional<ScriptComponent> Script;
         std::optional<AudioSourceComponent> AudioSource;
+        std::optional<ColliderComponent> Collider;
+        std::optional<PickupComponent> Pickup;
     };
 
     EntityRecord* GetRecord(Entity entity);

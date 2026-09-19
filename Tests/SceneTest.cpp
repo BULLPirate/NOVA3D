@@ -10,6 +10,16 @@ TEST(Scene, CreateDestroyEntity) {
     EXPECT_FALSE(scene.IsAlive(a));
 }
 
+TEST(Scene, DestroyEntityRemovesChildren) {
+    Nova::Scene scene;
+    Nova::Entity root = scene.CreateEntity("Root");
+    Nova::Entity child = scene.CreateEntity("Child");
+    scene.SetParent(child, root);
+    scene.DestroyEntity(root);
+    EXPECT_FALSE(scene.IsAlive(root));
+    EXPECT_FALSE(scene.IsAlive(child));
+}
+
 TEST(Scene, StaleHandleAfterDestroy) {
     Nova::Scene scene;
     Nova::Entity a = scene.CreateEntity("A");
@@ -32,18 +42,22 @@ TEST(Scene, EmptyLevelHasCameraAndLightOnly) {
     EXPECT_TRUE(scene.FindPrimaryCamera().IsValid());
 }
 
-TEST(Scene, DemoLevelIsPlayableGame) {
+TEST(Scene, DemoLevelIsEmptyEditorScene) {
     Nova::Scene scene = Nova::Scene::CreateDemoLevel();
     EXPECT_TRUE(scene.FindPrimaryCamera().IsValid());
-    EXPECT_TRUE(scene.FindEntityByName("Player").IsValid());
-    EXPECT_TRUE(scene.FindEntityByName("Ground").IsValid());
-    EXPECT_TRUE(scene.HasPlayerController(scene.FindEntityByName("Player")));
-    EXPECT_TRUE(scene.HasFollowCamera(scene.FindPrimaryCamera()));
+    EXPECT_FALSE(scene.FindEntityByName("Player").IsValid());
+    int meshes = 0;
+    scene.ForEachEntity([&](Nova::Entity e) {
+        if (scene.HasMeshRenderer(e)) {
+            ++meshes;
+        }
+    });
+    EXPECT_EQ(meshes, 0);
 }
 
 TEST(Scene, ClearRemovesEntities) {
     Nova::Scene scene = Nova::Scene::CreateDemoLevel();
-    EXPECT_GE(scene.EntityCount(), 4u);
+    EXPECT_GE(scene.EntityCount(), 2u);
     scene.Clear();
     EXPECT_EQ(scene.EntityCount(), 0u);
 }
@@ -65,6 +79,26 @@ TEST(Scene, ClearResetsEnvironment) {
     scene.Settings().ClearColor = {1.0f, 0.0f, 0.0f};
     scene.Clear();
     EXPECT_NEAR(scene.Settings().ClearColor.x, 0.52f, 1e-4f);
+}
+
+TEST(Scene, DuplicateEntityCopiesChildren) {
+    Nova::Scene scene;
+    Nova::Entity root = scene.CreateEntity("House");
+    Nova::Entity roof = scene.CreateEntity("Roof");
+    scene.SetParent(roof, root);
+    scene.GetTransform(roof).Position = {0.0f, 1.0f, 0.0f};
+
+    Nova::Entity copy = scene.DuplicateEntity(root);
+    ASSERT_TRUE(copy.IsValid());
+    int children = 0;
+    scene.ForEachEntity([&](Nova::Entity entity) {
+        if (scene.GetParent(entity).Id == copy.Id) {
+            ++children;
+            EXPECT_NEAR(scene.GetTransform(entity).Position.y, 1.0f, 1e-4f);
+        }
+    });
+    EXPECT_EQ(children, 1);
+    EXPECT_TRUE(scene.IsAlive(roof));
 }
 
 TEST(Scene, DuplicateEntityCopiesComponents) {

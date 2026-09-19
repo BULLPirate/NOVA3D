@@ -47,6 +47,7 @@ EngineSettings EngineSettings::Defaults() {
     s.Bindings["interact"] = KeyCode::E;
     s.MouseSensitivity = 1.0f;
     s.InvertY = false;
+    s.MouseLook = true;
     return s;
 }
 

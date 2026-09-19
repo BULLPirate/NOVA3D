@@ -22,7 +22,6 @@ compile_commands.json
 
 # Compiled
 *.o
-*.obj
 *.a
 *.lib
 *.so

@@ -49,26 +49,31 @@ case "${1:-editor}" in
     launch_mac_app NovaEditor
     ;;
   game|runtime|g)
-    build_target Nova3D
-    launch_mac_app Nova3D
+    echo "Runtime needs a game folder. Launch the sample game with: $0 knight"
+    echo "Or: $(app_bin Nova3D) --project PATH"
+    exit 1
     ;;
   test|t)
     build_target NovaTests
     "${BUILD}/bin/NovaTests"
     ;;
   play-scene)
-    build_target Nova3D
-    SCENE="${2:-${ROOT}/Assets/Scenes/demo.scene.json}"
-    exec "$(app_bin Nova3D)" --scene "${SCENE}"
+    echo "Runtime plays a game project, not the engine repo. Use: $0 knight"
+    echo "Or: Nova3D --project PATH"
+    exit 1
     ;;
   knight|bandits)
     build_target Nova3D
-    GAME="${HOME}/Desktop/KnightBandits"
-    exec "$(app_bin Nova3D)" --project "${GAME}"
+    GAME="${HOME}/Documents/NOVA3D/Projects/KnightBandits"
+    DESK="${HOME}/Desktop/KnightBandits"
+    if [[ -d "${DESK}/.nova" ]]; then
+      exec "$(app_bin Nova3D)" --ensure-project "${DESK}" --name "Knight Bandits" --template combat --project "${DESK}" --play
+    fi
+    exec "$(app_bin Nova3D)" --ensure-project "${GAME}" --name "Knight Bandits" --template combat --project "${GAME}" --play
     ;;
   game-project|gp)
-    build_target Nova3D
-    exec "$(app_bin Nova3D)" --project "${ROOT}"
+    echo "Open a game from the editor Projects tab, or: Nova3D --project PATH"
+    exit 1
     ;;
   *)
     echo "Usage: $0 [editor|game|test|build|play-scene PATH|game-project|knight]"

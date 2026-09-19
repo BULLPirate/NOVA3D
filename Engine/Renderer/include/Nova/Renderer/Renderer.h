@@ -47,6 +47,9 @@ public:
     /// Restrict mesh drawing to a sub-rectangle (editor viewport). Inactive = full framebuffer.
     virtual void SetRenderViewport(const RenderViewport& viewport) = 0;
 
+    /// Offscreen scene color (Metal texture) for the editor viewport. Null if unused.
+    virtual void* GetEditorSceneTexture() const { return nullptr; }
+
     /// View + projection for the current frame (call before BeginFrame).
     virtual void SetCamera(const Camera& camera) = 0;
 

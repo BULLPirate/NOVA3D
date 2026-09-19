@@ -20,6 +20,30 @@ bool CreateDirectories(const std::filesystem::path& path, std::string& error) {
     return true;
 }
 
+std::filesystem::path ResolveDataFile(const std::filesystem::path& projectRoot,
+                                      const std::string& relativeAssetPath) {
+    if (relativeAssetPath.empty()) {
+        return {};
+    }
+    const std::filesystem::path rel(relativeAssetPath);
+    if (rel.is_absolute() && FileExists(rel)) {
+        return rel;
+    }
+    if (!projectRoot.empty()) {
+        const std::filesystem::path inProject = projectRoot / rel;
+        if (FileExists(inProject)) {
+            return inProject;
+        }
+    }
+#ifdef NOVA_SOURCE_DIR
+    const std::filesystem::path inEngine = std::filesystem::path(NOVA_SOURCE_DIR) / rel;
+    if (FileExists(inEngine)) {
+        return inEngine;
+    }
+#endif
+    return projectRoot.empty() ? rel : projectRoot / rel;
+}
+
 FileIOResult ReadTextFile(const std::filesystem::path& path) {
     FileIOResult result;
     std::ifstream in(path);

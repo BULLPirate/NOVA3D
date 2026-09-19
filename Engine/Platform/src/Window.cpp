@@ -111,6 +111,12 @@ void* Window::GetNativeMetalLayer() const {
     return SDL_Metal_GetLayer(m_MetalView);
 }
 
+void Window::SetTitle(const std::string& title) {
+    if (m_Window) {
+        SDL_SetWindowTitle(m_Window, title.c_str());
+    }
+}
+
 void Window::SetCursorCaptured(bool captured) {
     m_CursorCaptured = captured;
     if (!m_Window) {

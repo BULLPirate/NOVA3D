@@ -83,6 +83,12 @@ Vec3 SnapPositionToGrid(const Vec3& position, float grid = kDefaultMoveGrid);
 void ApplyObjectTurn(Transform& transform, float mouseDeltaX, float mouseDeltaY,
                      float viewportHeightPx);
 
+void ApplyOrbitLook(float& yawRadians, float& pitchRadians, float mouseDeltaX, float mouseDeltaY,
+                    float radiansPerPixel);
+void ApplyOrbitDolly(float& distance, float amount, float minDistance, float maxDistance);
+void FrameOrbitOnBounds(float& yawRadians, float& pitchRadians, float& distance, Vec3& target,
+                        const Vec3& center, float radius);
+
 /// RMB look around a pivot. W/S approach or leave the subject, A/D and Q/E pan the pivot.
 void FlyEditCamera(float& yawRadians, float& pitchRadians, float& distance, Vec3& target,
                    float mouseDeltaX, float mouseDeltaY, float radiansPerPixel, float wishRight,

@@ -4,7 +4,10 @@
 #include <Nova/Scene/Gameplay.h>
 #include <Nova/Scene/Scene.h>
 #include <Nova/Scene/SceneSerialization.h>
+#include <Nova/Project/ProjectTemplate.h>
+#include <Nova/Project/Workspace.h>
 
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 
@@ -16,6 +19,18 @@ TEST(Gameplay, PlayableLevelHasPlayerGroundAndFollowCamera) {
     EXPECT_TRUE(scene.HasPlayerController(player));
     EXPECT_TRUE(scene.FindEntityByName("Ground").IsValid());
     EXPECT_TRUE(Nova::SceneHasFollowCamera(scene));
+    EXPECT_TRUE(scene.Settings().EnableWaves);
+}
+
+TEST(Gameplay, SandboxLevelHasPlayerWithoutWaves) {
+    Nova::Scene scene = Nova::Scene::CreateSandboxLevel();
+    ASSERT_TRUE(scene.FindEntityByName("Player").IsValid());
+    EXPECT_TRUE(scene.FindEntityByName("Ground").IsValid());
+    EXPECT_TRUE(Nova::SceneHasFollowCamera(scene));
+    EXPECT_FALSE(scene.Settings().EnableWaves);
+    const Nova::GameplayHudSnapshot hud = Nova::QueryGameplayHud(scene);
+    EXPECT_FALSE(hud.ShowCombatHud);
+    EXPECT_EQ(hud.Phase, Nova::GameplayPhase::Combat);
 }
 
 TEST(Gameplay, WasdMovesPlayerForward) {
@@ -53,13 +68,8 @@ TEST(Gameplay, DefaultKnightAndMap) {
     ASSERT_TRUE(player.IsValid());
     EXPECT_NEAR(scene.GetCharacterController(player).Health, 200.0f, 1e-3f);
     EXPECT_GT(scene.GetCharacterController(player).AttackDamage, 40.0f);
-    bool hasBody = false;
-    scene.ForEachEntity([&](Nova::Entity entity) {
-        if (scene.GetParent(entity).Id == player.Id && scene.GetName(entity) == "Player Body") {
-            hasBody = true;
-        }
-    });
-    EXPECT_TRUE(hasBody);
+    EXPECT_TRUE(scene.HasMeshRenderer(player));
+    EXPECT_EQ(scene.GetMeshRenderer(player).AssetPath, "Assets/Characters/knight_armed.obj");
     EXPECT_TRUE(scene.FindEntityByName("Wall North").IsValid());
     EXPECT_TRUE(scene.FindEntityByName("House A").IsValid());
     EXPECT_TRUE(scene.FindEntityByName("Bandit 1").IsValid());
@@ -120,6 +130,41 @@ TEST(Gameplay, AttackDamagesNearbyBandit) {
     EXPECT_TRUE(scene.GetCharacterController(bandit).Dead);
 }
 
+TEST(Gameplay, MeleeDoesNotHitThroughWall) {
+    Nova::Scene scene = Nova::Scene::CreateEmptyLevel();
+    Nova::SpawnGround(scene);
+    Nova::Entity player = Nova::SpawnPlayer(scene);
+    Nova::Entity bandit = Nova::SpawnEnemy(scene, {2.2f, 0.0f, 0.0f});
+    Nova::Entity wall = scene.CreateEntity("Wall Block");
+    Nova::MeshRendererComponent mesh;
+    mesh.Primitive = Nova::MeshPrimitive::UnitCube;
+    scene.AddMeshRenderer(wall, mesh);
+    scene.AddCollider(wall);
+    scene.GetTransform(wall).Position = {1.1f, 1.0f, 0.0f};
+    scene.GetTransform(wall).Scale = {0.4f, 2.0f, 2.0f};
+    scene.GetTransform(player).Position = {0.0f, 0.0f, 0.0f};
+    scene.GetTransform(bandit).Position = {2.2f, 0.0f, 0.0f};
+
+    const float hp0 = scene.GetCharacterController(bandit).Health;
+    Nova::Input input;
+    input.BeginFrame();
+    input.OnKeyDown(Nova::KeyCode::F);
+    Nova::TickScene(scene, 0.016f, &input);
+    EXPECT_NEAR(scene.GetCharacterController(bandit).Health, hp0, 1e-3f);
+}
+
+TEST(Gameplay, DeadBanditRemovedAfterDelay) {
+    Nova::Scene scene = Nova::Scene::CreateEmptyLevel();
+    Nova::SpawnGround(scene);
+    Nova::SpawnPlayer(scene);
+    Nova::Entity bandit = Nova::SpawnEnemy(scene, {1.1f, 0.0f, 0.0f});
+    scene.GetCharacterController(bandit).Dead = true;
+    scene.GetCharacterController(bandit).Health = 0.0f;
+    scene.GetCharacterController(bandit).CorpseTimer = 0.2f;
+    Nova::TickScene(scene, 0.25f, nullptr);
+    EXPECT_FALSE(scene.IsAlive(bandit));
+}
+
 TEST(Gameplay, EnemyWalksTowardPlayer) {
     Nova::Scene scene = Nova::Scene::CreateEmptyLevel();
     Nova::SpawnGround(scene);
@@ -177,18 +222,106 @@ TEST(Gameplay, EnsurePlayableFillsEmptyScene) {
     EXPECT_TRUE(Nova::SceneHasFollowCamera(scene));
 }
 
+TEST(Gameplay, HealthPickupHealsPlayer) {
+    Nova::Scene scene = Nova::Scene::CreateEmptyLevel();
+    Nova::SpawnGround(scene);
+    Nova::Entity player = Nova::SpawnPlayer(scene);
+    scene.GetCharacterController(player).Health = 80.0f;
+    Nova::Entity herb = Nova::SpawnHealthPickup(scene, {0.4f, 0.0f, 0.0f});
+    ASSERT_TRUE(scene.HasPickup(herb));
+    ASSERT_TRUE(scene.HasCollider(scene.FindEntityByName("Ground")) == false);
+
+    Nova::Input input;
+    input.BeginFrame();
+    Nova::TickScene(scene, 0.016f, &input);
+
+    EXPECT_GT(scene.GetCharacterController(player).Health, 110.0f);
+    EXPECT_TRUE(scene.GetPickup(herb).Taken);
+}
+
+TEST(Gameplay, MapSolidsHaveColliders) {
+    Nova::Scene scene = Nova::Scene::CreatePlayableLevel();
+    const Nova::Entity wall = scene.FindEntityByName("Wall North");
+    ASSERT_TRUE(wall.IsValid());
+    EXPECT_TRUE(scene.HasCollider(wall));
+    EXPECT_TRUE(scene.FindEntityByName("Herb 1").IsValid());
+    EXPECT_TRUE(scene.HasPickup(scene.FindEntityByName("Herb 1")));
+}
+
+TEST(Gameplay, WaveDoesNotStartWithoutDeadEnemies) {
+    Nova::Scene scene = Nova::Scene::CreateEmptyLevel();
+    Nova::SpawnGround(scene);
+    Nova::SpawnPlayer(scene);
+    Nova::Input input;
+    input.BeginFrame();
+    Nova::TickScene(scene, 0.5f, &input);
+    EXPECT_EQ(scene.Settings().Wave, 1);
+    bool spawnedBandit = false;
+    scene.ForEachEntity([&](Nova::Entity entity) {
+        if (scene.HasCharacterController(entity) && scene.GetCharacterController(entity).Team == 1) {
+            spawnedBandit = true;
+        }
+    });
+    EXPECT_FALSE(spawnedBandit);
+}
+
+TEST(Gameplay, WaveStartsAfterClear) {
+    Nova::Scene scene = Nova::Scene::CreatePlayableLevel();
+    scene.ForEachEntity([&](Nova::Entity entity) {
+        if (scene.HasCharacterController(entity) && scene.GetCharacterController(entity).Team == 1) {
+            scene.GetCharacterController(entity).Dead = true;
+            scene.GetCharacterController(entity).Health = 0.0f;
+        }
+    });
+    Nova::Input input;
+    for (int i = 0; i < 20; ++i) {
+        input.BeginFrame();
+        Nova::TickScene(scene, 0.1f, &input);
+    }
+    EXPECT_EQ(scene.Settings().Wave, 2);
+    int alive = 0;
+    scene.ForEachEntity([&](Nova::Entity entity) {
+        if (scene.HasCharacterController(entity) && scene.GetCharacterController(entity).Team == 1 &&
+            !scene.GetCharacterController(entity).Dead) {
+            ++alive;
+        }
+    });
+    EXPECT_GE(alive, 3);
+}
+
+TEST(Gameplay, PlaySimulationKeepsHeroOnMap) {
+    Nova::Scene scene = Nova::Scene::CreatePlayableLevel();
+    const Nova::Entity player = scene.FindEntityByName("Player");
+    Nova::Input input;
+    for (int i = 0; i < 40; ++i) {
+        input.BeginFrame();
+        input.OnKeyDown(Nova::KeyCode::W);
+        Nova::TickScene(scene, 0.05f, &input);
+    }
+    const Nova::Vec3 pos = scene.GetTransform(player).Position;
+    EXPECT_TRUE(std::isfinite(pos.x) && std::isfinite(pos.y) && std::isfinite(pos.z));
+    EXPECT_LT(std::abs(pos.x), 13.5f);
+    EXPECT_LT(std::abs(pos.z), 13.5f);
+    EXPECT_NEAR(pos.y, 0.0f, 0.35f);
+    const Nova::Entity camera = scene.FindPrimaryCamera();
+    const Nova::Vec3 look = scene.GetCamera(camera).LookAtTarget;
+    EXPECT_NEAR(look.x, pos.x, 0.35f);
+    EXPECT_NEAR(look.z, pos.z, 0.35f);
+}
+
 TEST(Gameplay, ExportPlayableScenes) {
-    const Nova::Scene scene = Nova::Scene::CreatePlayableLevel();
+    const Nova::Scene empty = Nova::Scene::CreateEmptyLevel();
     const std::filesystem::path demo =
         std::filesystem::path(NOVA_SOURCE_DIR) / "Assets/Scenes/demo.scene.json";
-    ASSERT_TRUE(Nova::SaveSceneToFile(scene, demo).Ok);
+    ASSERT_TRUE(Nova::SaveSceneToFile(empty, demo).Ok);
+    EXPECT_FALSE(empty.FindEntityByName("Player").IsValid());
 
-    const std::filesystem::path gameRoot =
-        std::filesystem::path(std::getenv("HOME") ? std::getenv("HOME") : ".") / "Desktop" /
-        "KnightBandits";
-    std::error_code ec;
-    std::filesystem::create_directories(gameRoot / "Assets" / "Scenes", ec);
-    const Nova::SceneIOResult saved =
-        Nova::SaveSceneToFile(scene, gameRoot / "Assets" / "Scenes" / "arena.scene.json");
-    EXPECT_TRUE(saved.Ok) << saved.Error;
+    const std::filesystem::path gameRoot = Nova::DefaultProjectsDirectory() / "KnightBandits";
+    ASSERT_TRUE(Nova::CreateGameProject(gameRoot, "Knight Bandits",
+                                        Nova::ProjectTemplateKind::KnightBandits, NOVA_SOURCE_DIR)
+                    .Ok);
+    Nova::Scene loaded;
+    ASSERT_TRUE(Nova::LoadSceneFromFile(gameRoot / "Assets" / "Scenes" / "main.scene.json", loaded).Ok);
+    EXPECT_TRUE(loaded.FindEntityByName("Player").IsValid());
+    EXPECT_TRUE(loaded.Settings().EnableWaves);
 }
